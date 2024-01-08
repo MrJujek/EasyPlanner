@@ -1,7 +1,22 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
-const { getDefaultConfig } = require('expo/metro-config');
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
-/** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname);
+/**
+ * Metro configuration
+ * https://facebook.github.io/metro/docs/configuration
+ *
+ * @type {import('metro-config').MetroConfig}
+ */
+module.exports = (async () => {
+    const defaultConfig = await getDefaultConfig(__dirname);
 
-module.exports = config;
+    const config = {
+        transformer: {
+            babelTransformerPath: require.resolve('react-native-sass-transformer'),
+        },
+        resolver: {
+            sourceExts: [...defaultConfig.resolver.sourceExts, 'scss', 'sass'],
+        },
+    };
+
+    return mergeConfig(defaultConfig, config);
+})();
