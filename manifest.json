@@ -1,0 +1,17 @@
+{
+	"name": "easyplanner",
+	"short_name": "easyplanner",
+	"start_url": ".",
+	"display": "standalone",
+	"background_color": "#fff",
+	"description": "Simple and easy to use planner",
+	"theme_color": "#317EFB",
+	"icons": [
+		{
+			"src": "/vite.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any maskable"
+		}
+	]
+}
