@@ -12,6 +12,7 @@ module.exports = (async () => {
     const config = {
         transformer: {
             babelTransformerPath: require.resolve('react-native-sass-transformer'),
+            unstable_allowRequireContext: true
         },
         resolver: {
             sourceExts: [...defaultConfig.resolver.sourceExts, 'scss', 'sass'],
