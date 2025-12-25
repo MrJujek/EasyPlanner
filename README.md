@@ -1,30 +1,22 @@
-# React + TypeScript + Vite
+# Easy Planner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A simple and intuitive application designed to help you organize your daily tasks and schedule effectively.
 
-Currently, two official plugins are available:
+## Authors
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- [Julian Dworzycki](https://github.com/MrJujek)
+- [Radosław Klamka](https://github.com/Radzi0slaw-102)
 
-## Expanding the ESLint configuration
+## Run the application
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### Frontend
 
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+```bash
+cd frontend
+bun i
+bun run build
+bun run preview
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+> [!NOTE]
+> You need to have [bun](https://bun.sh/) installed on your machine.
