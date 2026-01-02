@@ -1,10 +1,12 @@
+import "reflect-metadata";
+import dotenv from "dotenv";
+import path from "path";
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import { register, login, refresh } from "./controllers/authController";
 import { AppDataSource } from "./config/data-source";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
