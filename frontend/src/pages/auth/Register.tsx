@@ -100,30 +100,6 @@ export const Register = () => {
                             </p>
                         )}
 
-                        <label htmlFor="inputEmail">Email address</label>
-                        <input
-                            type="text"
-                            name="inputEmail"
-                            id="inputEmail"
-                            required
-                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm ${
-                                errors.email
-                                    ? "border-red-500"
-                                    : "border-gray-300"
-                            }`}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    email: e.target.value,
-                                })
-                            }
-                        />
-                        {errors.email && (
-                            <p className="mt-1 text-xs text-red-500">
-                                {errors.email}
-                            </p>
-                        )}
-
                         <label htmlFor="inputPassword">Password</label>
                         <input
                             type="text"
