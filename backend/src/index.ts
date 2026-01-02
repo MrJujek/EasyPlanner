@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { register, login, refresh } from "./src/controllers/authController";
-import { AppDataSource } from "./src/config/data-source";
+import { register, login, refresh } from "./controllers/authController";
+import { AppDataSource } from "./config/data-source";
 
 dotenv.config();
 
