@@ -17,27 +17,32 @@ export const Register = () => {
         e.preventDefault();
         localCheck();
 
-        if (errors.username === "" && errors.email === "" && passError === "") {
-            try {
-                await api.post("/register", formData);
-                navigate("/login");
-            } catch (err: unknown) {
-                if (axios.isAxiosError(err)) {
+        if (errors.username == "" && errors.email == "" && passError == "") {
+            console.log("OK");
+        } else {
+            console.log(passError);
+        }
+
+        try {
+            await api.post("/register", formData);
+            navigate("/login");
+        } catch (err: unknown) {
+            if (axios.isAxiosError(err)) {
+                const serverErrors = err.response?.data?.errors;
+                if (serverErrors) {
                     setErrors(err.response?.data.errors);
                     if (err.response?.status === 409) {
                         setErrors(err.response.data.errors);
                     } else {
                         console.error(
-                            "API error: ",
-                            err.response?.data?.message
+                            "API Error:",
+                            err.response?.data || err.message
                         );
                     }
-                } else {
-                    console.error("Unexpected error: ", err);
                 }
+            } else {
+                console.error("Unexpected error: ", err);
             }
-        } else {
-            console.log(passError);
         }
     };
 
@@ -104,17 +109,23 @@ export const Register = () => {
                         <input
                             type="text"
                             name="inputPassword"
-                            id="input"
+                            id="inputPassword"
                             required
                             className={`mt-1 block w-full px-3 py-2 border ${
                                 passError !== ""
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    password: e.target.value,
+                                })
+                            }
                         />
                         {passError !== "" && (
                             <p className="mt-1 text-xs text-red-500">
-                                {errors.email}
+                                {errors.password}
                             </p>
                         )}
                     </div>
