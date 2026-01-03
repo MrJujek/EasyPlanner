@@ -1,12 +1,14 @@
 import "reflect-metadata";
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-
 import express from "express";
 import cors from "cors";
 import { register, login, refresh } from "./controllers/authController";
 import { AppDataSource } from "./config/data-source";
+import { authenticateToken } from "./middleware/authMiddleware";
+import { createTask, getTasks, deleteTask, updateTask } from "./controllers/taskController";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const app = express();
 const PORT = process.env.PORT;
@@ -17,6 +19,11 @@ app.use(express.json());
 app.post("/register", register);
 app.post("/login", login);
 app.post("/refresh", refresh);
+
+app.post("/tasks", authenticateToken, createTask);
+app.get("/tasks", authenticateToken, getTasks);
+app.put("/tasks/:id", authenticateToken, updateTask);
+app.delete("/tasks/:id", authenticateToken, deleteTask);
 
 AppDataSource.initialize()
     .then(() => {
