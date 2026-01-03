@@ -1,0 +1,14 @@
+{
+  "name": "easyplanner",
+  "version": "0.0.1",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"bun --cwd frontend dev\" \"bun --cwd backend dev\""
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
