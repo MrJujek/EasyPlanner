@@ -1,10 +1,10 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./assets/AuthContext";
-import Home from "./pages/Home";
+import { AuthProvider } from "./contexts/AuthContext";
 import { Register } from "./pages/auth/Register";
 import { Login } from "./pages/auth/Login";
-import { ProtectedRoute } from "./assets/ProtectedRoute";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./pages/NotFound";
+import { Dashboard } from "./pages/Dashboard";
 
 function App() {
     return (
@@ -15,7 +15,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
 
                     <Route element={<ProtectedRoute />}>
-                        <Route path="/" element={<Home />} />
+                        <Route path="/" element={<Dashboard />} />
                     </Route>
 
                     <Route path="/*" element={<NotFound />} />
