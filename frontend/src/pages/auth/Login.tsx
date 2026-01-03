@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../assets/AuthContextType";
-import api from "../../api/axiosInstance";
 
 export const Login = () => {
     const { login } = useAuth();
@@ -12,16 +11,12 @@ export const Login = () => {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError("");
         try {
-            const res = await api.post("/login", { email, password });
-            login(
-                res.data.accessToken,
-                res.data.refreshToken,
-                res.data.username || email
-            );
+            await login(email, password);
             navigate("/");
         } catch (err) {
-            setError("Nieprawidłowy email lub hasło");
+            setError("Wrong email or password");
         }
     };
 

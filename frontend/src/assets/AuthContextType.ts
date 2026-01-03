@@ -4,11 +4,15 @@ export interface AuthContextType {
     token: string | null;
     username: string | null;
     login: (
-        accessToken: string,
-        refreshToken: string,
-        username: string
-    ) => void;
-    logout: () => void;
+        email: string,
+        password: string
+    ) => Promise<void>;
+    register: (
+        username: string,
+        email: string,
+        password: string
+    ) => Promise<void>;
+    logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(

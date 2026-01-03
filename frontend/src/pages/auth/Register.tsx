@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import api from "../../api/axiosInstance";
+import { useAuth } from "../../assets/AuthContextType";
 
 export const Register = () => {
     const navigate = useNavigate();
+    const { register } = useAuth();
     const [formData, setFormData] = useState({
         username: "",
         email: "",
@@ -24,24 +25,26 @@ export const Register = () => {
         }
 
         try {
-            await api.post("/register", formData);
+            await register(
+                formData.username,
+                formData.email,
+                formData.password
+            );
             navigate("/login");
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
+                const status = err.response?.status;
                 const serverErrors = err.response?.data?.errors;
-                if (serverErrors) {
-                    setErrors(err.response?.data.errors);
-                    if (err.response?.status === 409) {
-                        setErrors(err.response.data.errors);
-                    } else {
-                        console.error(
-                            "API Error:",
-                            err.response?.data || err.message
-                        );
-                    }
+
+                if (status === 409 && serverErrors) {
+                    setErrors(serverErrors);
+                } else if (status === 500) {
+                    alert("Server doesn't respond");
+                } else {
+                    console.error("Server error:", err.message);
                 }
             } else {
-                console.error("Unexpected error: ", err);
+                console.error("Unexpected error:", err);
             }
         }
     };
@@ -83,7 +86,7 @@ export const Register = () => {
 
                         <label htmlFor="inputEmail">Email address</label>
                         <input
-                            type="text"
+                            type="email"
                             name="inputEmail"
                             id="inputEmail"
                             required
@@ -107,7 +110,7 @@ export const Register = () => {
 
                         <label htmlFor="inputPassword">Password</label>
                         <input
-                            type="text"
+                            type="password"
                             name="inputPassword"
                             id="inputPassword"
                             required
