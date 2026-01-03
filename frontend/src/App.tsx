@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import { Register } from "./pages/auth/Register";
 import { Login } from "./pages/auth/Login";
 import { ProtectedRoute } from "./assets/ProtectedRoute";
+import { NotFound } from "./pages/NotFound";
 
 function App() {
     return (
@@ -12,10 +13,12 @@ function App() {
                 <Routes>
                     <Route path="/register" element={<Register />} />
                     <Route path="/login" element={<Login />} />
-                    
-                    <Route element={<ProtectedRoute/>}>
+
+                    <Route element={<ProtectedRoute />}>
                         <Route path="/" element={<Home />} />
                     </Route>
+
+                    <Route path="/*" element={<NotFound />} />
                 </Routes>
             </BrowserRouter>
         </AuthProvider>
