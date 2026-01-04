@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../assets/AuthContextType";
+import { useAuth } from "../../contexts/AuthContextType";
 
 export const Register = () => {
     const navigate = useNavigate();
@@ -66,11 +66,10 @@ export const Register = () => {
                             name="inputUsername"
                             id="inputUsername"
                             required
-                            className={`mt-1 block w-full px-3 py-2 border ${
-                                errors.username
+                            className={`mt-1 block w-full px-3 py-2 border ${errors.username
                                     ? "border-red-500"
                                     : "border-gray-300"
-                            } rounded-md shadow-sm`}
+                                } rounded-md shadow-sm`}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
@@ -90,11 +89,10 @@ export const Register = () => {
                             name="inputEmail"
                             id="inputEmail"
                             required
-                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm ${
-                                errors.email
+                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm ${errors.email
                                     ? "border-red-500"
                                     : "border-gray-300"
-                            }`}
+                                }`}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
@@ -114,11 +112,10 @@ export const Register = () => {
                             name="inputPassword"
                             id="inputPassword"
                             required
-                            className={`mt-1 block w-full px-3 py-2 border ${
-                                passError !== ""
+                            className={`mt-1 block w-full px-3 py-2 border ${passError !== ""
                                     ? "border-red-500"
                                     : "border-gray-300"
-                            }`}
+                                }`}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
