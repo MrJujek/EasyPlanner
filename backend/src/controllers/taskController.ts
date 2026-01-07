@@ -2,6 +2,7 @@ import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
 import { Task } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
+import { In } from "typeorm";
 
 const taskRepository = AppDataSource.getRepository(Task);
 
@@ -96,6 +97,50 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating task", error });
+  }
+};
+
+export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
+  const queryRunner = AppDataSource.createQueryRunner();
+
+  try {
+    const userId = req.user?.userId;
+    const { id } = req.params;
+    const { subtaskIds } = req.body;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    const parentId = Number(id);
+
+    await queryRunner.manager.update(
+      Task,
+      { parentId, userId },
+      { parentId: null }
+    );
+
+    if (subtaskIds && subtaskIds.length > 0) {
+      await queryRunner.manager.update(
+        Task,
+        {
+          id: In(subtaskIds),
+          userId,
+        },
+        { parentId }
+      );
+    }
+
+    await queryRunner.commitTransaction();
+    res.json({ message: "Subtasks list succesfully updated" });
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Error during updating subtasks list", error });
+  } finally {
+    await queryRunner.release();
   }
 };
 
