@@ -38,11 +38,38 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     const tasks = await taskRepository.find({
       where: { userId },
       order: { createdAt: "DESC" },
+      // relations: ["subtasks"],
     });
     res.json(tasks);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching tasks", error });
+  }
+};
+
+export const getSingleTask = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const task = await taskRepository.findOne({
+      where: {
+        userId,
+        id: Number(id),
+      },
+      order: { createdAt: "DESC" },
+      // relations: ["subtasks"],
+    });
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching task", error });
   }
 };
 
