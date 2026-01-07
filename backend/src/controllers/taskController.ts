@@ -100,6 +100,45 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const updateTaskParent = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { id } = req.params;
+    const { newParentId } = req.body;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const taskId = Number(id);
+    const parentId = Number(newParentId);
+
+    const newParent = await taskRepository.findOne({
+      where: { id: parentId, userId },
+    });
+
+    if (!newParent) {
+      return res.status(404).json({ message: "Parent task not found" });
+    }
+
+    const updateResult = await taskRepository.update(
+      { id: taskId, userId },
+      { parentId: parentId }
+    );
+
+    if (updateResult.affected === 0) {
+      return res.status(404).json({ message: "Parent task not found" });
+    }
+
+    res.json({
+      message: "Parent task succesfully updated",
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Error updating parent task", error });
+  }
+};
+
 export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
   const queryRunner = AppDataSource.createQueryRunner();
 
@@ -138,7 +177,7 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
     console.error(error);
     res
       .status(500)
-      .json({ message: "Error during updating subtasks list", error });
+      .json({ message: "Error updating subtasks list", error });
   } finally {
     await queryRunner.release();
   }
