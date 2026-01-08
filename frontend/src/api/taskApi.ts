@@ -6,6 +6,11 @@ export const getTasks = async (): Promise<Task[]> => {
     return response.data;
 };
 
+export const getTask = async (id: number): Promise<Task> => {
+  const response = await api.get<Task>(`/tasks/${id}`);
+  return response.data;
+}
+
 export const createTask = async (data: CreateTaskDto): Promise<Task> => {
     const response = await api.post<Task>("/tasks", data);
     return response.data;
