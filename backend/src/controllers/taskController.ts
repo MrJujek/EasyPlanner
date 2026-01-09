@@ -2,7 +2,7 @@ import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
 import { Task } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import { In } from "typeorm";
+import { In, IsNull, Not } from "typeorm";
 
 const taskRepository = AppDataSource.getRepository(Task);
 
@@ -38,6 +38,33 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 
     const tasks = await taskRepository.find({
       where: { userId },
+      order: { createdAt: "DESC" },
+      // relations: ["subtasks"],
+    });
+    res.json(tasks);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching tasks", error });
+  }
+};
+
+export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { taskId } = req.params;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const conditions: any = {
+      userId,
+      parentId: IsNull(),
+    };
+
+    if (taskId) {
+      conditions.id = Not(Number(taskId));
+    }
+
+    const tasks = await taskRepository.find({
+      where: conditions,
       order: { createdAt: "DESC" },
       // relations: ["subtasks"],
     });
@@ -133,9 +160,7 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ message: "Error updating parent task", error });
+    res.status(500).json({ message: "Error updating parent task", error });
   }
 };
 
@@ -175,9 +200,7 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     await queryRunner.rollbackTransaction();
     console.error(error);
-    res
-      .status(500)
-      .json({ message: "Error updating subtasks list", error });
+    res.status(500).json({ message: "Error updating subtasks list", error });
   } finally {
     await queryRunner.release();
   }
