@@ -28,7 +28,8 @@ app.patch("/tasks/:id/parent", authenticateToken, updateTaskParent);
 app.patch("/tasks/:id/subtasks", authenticateToken, toggleSubtasks);
 app.delete("/tasks/:id", authenticateToken, deleteTask);
 
-app.get("/subtasks", authenticateToken, getTasksNoParents)
+app.get("/subtasks", authenticateToken, getTasksNoParents);
+app.put("/subtasks/:id", authenticateToken, toggleSubtasks);
 
 AppDataSource.initialize()
     .then(() => {

@@ -39,7 +39,7 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     const tasks = await taskRepository.find({
       where: { userId },
       order: { createdAt: "DESC" },
-      // relations: ["subtasks"],
+      relations: ["subtasks"],
     });
     res.json(tasks);
   } catch (error) {
@@ -51,20 +51,13 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { taskId } = req.params;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const conditions: any = {
-      userId,
-      parentId: IsNull(),
-    };
-
-    if (taskId) {
-      conditions.id = Not(Number(taskId));
-    }
-
     const tasks = await taskRepository.find({
-      where: conditions,
+      where: {
+        userId,
+        parentId: IsNull(),
+      },
       order: { createdAt: "DESC" },
       // relations: ["subtasks"],
     });
@@ -87,7 +80,7 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
         id: Number(id),
       },
       order: { createdAt: "DESC" },
-      // relations: ["subtasks"],
+      relations: ["subtasks"],
     });
 
     if (!task) {
@@ -165,42 +158,34 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
 };
 
 export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { subtaskIds } = req.body;
+  const parentId = Number(id);
+  const userId = req.user?.userId;
+
   const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
   try {
-    const userId = req.user?.userId;
-    const { id } = req.params;
-    const { subtaskIds } = req.body;
-
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    const parentId = Number(id);
-
-    await queryRunner.manager.update(
-      Task,
-      { parentId, userId },
-      { parentId: null }
-    );
+    await queryRunner.manager.createQueryBuilder()
+      .update(Task)
+      .set({ parentId: null })
+      .where({ parentId, userId })
+      .execute();
 
     if (subtaskIds && subtaskIds.length > 0) {
-      await queryRunner.manager.update(
-        Task,
-        {
-          id: In(subtaskIds),
-          userId,
-        },
-        { parentId }
-      );
+      await queryRunner.manager.createQueryBuilder()
+        .update(Task)
+        .set({ parentId: parentId })
+        .where({ subtaskIds, userId })
+        .execute();
     }
 
     await queryRunner.commitTransaction();
-    res.json({ message: "Subtasks list succesfully updated" });
-  } catch (error) {
+  } catch (err) {
     await queryRunner.rollbackTransaction();
-    console.error(error);
-    res.status(500).json({ message: "Error updating subtasks list", error });
+    throw err;
   } finally {
     await queryRunner.release();
   }
