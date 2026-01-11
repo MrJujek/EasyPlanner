@@ -1,12 +1,14 @@
 import { createContext, useContext } from "react";
 
+export interface User {
+    username: string;
+    email: string;
+}
+
 export interface AuthContextType {
     token: string | null;
-    username: string | null;
-    login: (
-        email: string,
-        password: string
-    ) => Promise<void>;
+    user: User | null;
+    login: (email: string, password: string) => Promise<void>;
     register: (
         username: string,
         email: string,

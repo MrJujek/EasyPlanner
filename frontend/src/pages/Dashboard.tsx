@@ -14,7 +14,7 @@ import { useAuth } from "../contexts/AuthContextType";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const { username, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -92,7 +92,7 @@ export const Dashboard = () => {
           </h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-600 font-medium">
-              Hello, {username || "User"}
+              Hello, {user?.username || "User"}
             </span>
             <button
               onClick={logout}
