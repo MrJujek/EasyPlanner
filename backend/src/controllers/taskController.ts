@@ -2,7 +2,7 @@ import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
 import { Task } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import { In, IsNull, Not } from "typeorm";
+import { In, IsNull } from "typeorm";
 
 const taskRepository = AppDataSource.getRepository(Task);
 
@@ -59,7 +59,7 @@ export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
         parentId: IsNull(),
       },
       order: { createdAt: "DESC" },
-      // relations: ["subtasks"],
+      relations: ["subtasks"],
     });
     res.json(tasks);
   } catch (error) {
@@ -132,7 +132,7 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
     const parentId = Number(newParentId);
 
     const newParent = await taskRepository.findOne({
-      where: { id: parentId, userId },
+      where: { id: parentId, userId }
     });
 
     if (!newParent) {
@@ -159,7 +159,7 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
 
 export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { subtaskIds } = req.body;
+  const { subtasks } = req.body;
   const parentId = Number(id);
   const userId = req.user?.userId;
 
@@ -168,21 +168,26 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
   await queryRunner.startTransaction();
 
   try {
-    await queryRunner.manager.createQueryBuilder()
+    await queryRunner.manager
+      .createQueryBuilder()
       .update(Task)
       .set({ parentId: null })
       .where({ parentId, userId })
       .execute();
 
-    if (subtaskIds && subtaskIds.length > 0) {
-      await queryRunner.manager.createQueryBuilder()
+    if (subtasks && subtasks.length > 0) {
+      await queryRunner.manager
+        .createQueryBuilder()
         .update(Task)
         .set({ parentId: parentId })
-        .where({ subtaskIds, userId })
+        .where({ id: In(subtasks), userId })
         .execute();
     }
 
     await queryRunner.commitTransaction();
+    res.json({
+      message: "Subtasks successfully updated",
+    });
   } catch (err) {
     await queryRunner.rollbackTransaction();
     throw err;
