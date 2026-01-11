@@ -5,6 +5,7 @@ import { Login } from "./pages/auth/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
+import { TaskDetail } from "./pages/task/TaskDetail";
 
 function App() {
     return (
@@ -16,6 +17,7 @@ function App() {
 
                     <Route element={<ProtectedRoute />}>
                         <Route path="/" element={<Dashboard />} />
+                        <Route path="/task/:id" element={<TaskDetail/>}/>
                     </Route>
 
                     <Route path="/*" element={<NotFound />} />

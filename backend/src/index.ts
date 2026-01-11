@@ -6,7 +6,7 @@ import cors from "cors";
 import { register, login, refresh } from "./controllers/authController";
 import { AppDataSource } from "./config/data-source";
 import { authenticateToken } from "./middleware/authMiddleware";
-import { createTask, getTasks, deleteTask, updateTask } from "./controllers/taskController";
+import { createTask, getTasks, getSingleTask, updateTask, updateTaskParent, toggleSubtasks, deleteTask, getTasksNoParents } from "./controllers/taskController";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
@@ -22,8 +22,14 @@ app.post("/refresh", refresh);
 
 app.post("/tasks", authenticateToken, createTask);
 app.get("/tasks", authenticateToken, getTasks);
+app.get("/tasks/:id", authenticateToken, getSingleTask);
 app.put("/tasks/:id", authenticateToken, updateTask);
+app.patch("/tasks/:id/parent", authenticateToken, updateTaskParent);
+app.patch("/tasks/:id/subtasks", authenticateToken, toggleSubtasks);
 app.delete("/tasks/:id", authenticateToken, deleteTask);
+
+app.get("/subtasks", authenticateToken, getTasksNoParents);
+app.put("/subtasks/:id", authenticateToken, toggleSubtasks);
 
 AppDataSource.initialize()
     .then(() => {
