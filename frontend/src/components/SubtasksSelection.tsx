@@ -27,17 +27,23 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
   useEffect(() => {
     const loadTasks = async () => {
       setIsLoading(true);
-      try {
-        const tasks = await getTasksNoParents();
-        const filteredTasks = tasks.filter(
-          (t: Task) => t.id !== initialTaskId && t.id !== task?.parentId && t.status !== TaskStatus.DONE
-        );
-        setAvailableTasks(filteredTasks);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
+  try {
+    const tasks = await getTasksNoParents();
+    
+    const filteredTasks = tasks.filter((t: Task) => {
+      const isNotInitialTask = t.id !== initialTaskId;
+      const hasNoSubtasks = !t.subtasks || t.subtasks.length === 0;
+      const isNotDone = t.status !== TaskStatus.DONE;
+
+      return isNotInitialTask && hasNoSubtasks && isNotDone;
+    });
+
+    setAvailableTasks(filteredTasks);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setIsLoading(false);
+  }
     };
 
     if (isOpen) {

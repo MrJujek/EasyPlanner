@@ -39,6 +39,7 @@ export interface CreateTaskDto {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  parentId?: number;
 }
 
 export interface UpdateTaskDto {

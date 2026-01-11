@@ -6,9 +6,10 @@ interface TaskFormProps {
     onClose: () => void;
     onSubmit: (data: CreateTaskDto) => void;
     initialData?: Task;
+    parentId?: number;
 }
 
-export const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+export const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSubmit, initialData, parentId }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [status, setStatus] = useState<TaskStatus>(TaskStatus.TODO);
@@ -32,7 +33,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, onSubmit, i
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ title, description, status, priority });
+        onSubmit({ title, description, status, priority, parentId });
         onClose();
     };
 

@@ -31,5 +31,5 @@ export const deleteTask = async (id: number): Promise<void> => {
 };
 
 export const setSubtasks = async (taskId: number, newSubtasks : number[]): Promise<void> => {
-    await api.put<Task>(`/subtasks/${taskId}`, { subtaskIds: newSubtasks});
+    await api.put<Task>(`/subtasks/${taskId}`, { subtasks: newSubtasks});
 };

@@ -5,9 +5,18 @@ import {
   TaskStatus,
   priorityColors,
   statusColors,
+  UpdateTaskDto,
+  CreateTaskDto,
 } from "../../types/task";
-import { getTask, setSubtasks } from "../../api/taskApi";
+import {
+  getTask,
+  setSubtasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from "../../api/taskApi";
 import { SubtaskSelection } from "../../components/SubtasksSelection";
+import { TaskForm } from "../../components/TaskForm";
 
 export const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,42 +26,117 @@ export const TaskDetail: React.FC = () => {
   const taskId = id ? parseInt(id, 10) : null;
   const [task, setTask] = useState<Task | null>(location.state?.task || null);
   const [isLoading, setIsLoading] = useState<boolean>(!task);
+  const [isSelectionOpen, setIsSelectionOpen] = useState<boolean>(false);
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   useEffect(() => {
-    if (taskId && (!task || task.id !== taskId)) {
+    if (taskId) {
+      setTask(null);
       setIsLoading(true);
       fetchTask(taskId);
     }
-  }, [taskId, task]);
+  }, [taskId]);
 
-  const fetchTask = async (id: number) => {
+  const fetchTask = async (id: number | null) => {
+    if (!id) {
+      console.error("Fatal error");
+    } else {
+      try {
+        const data = await getTask(id);
+        setTask(data);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleUpdate = async (data: UpdateTaskDto) => {
+    if (!editingTask) return;
     try {
-      const data = await getTask(id);
-      setTask(data);
+      await updateTask(editingTask.id, data);
+      await fetchTask(editingTask.id);
+      setIsFormOpen(false);
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const openCreateModal = () => {
-    setIsFormOpen(true);
-  };
-
-  const handleAddSubtasks = async (subtasksIds: number[]) => {
-    if (taskId === null) {
-      console.error("Can't add subtasks to non-existing task");
-      return;
-    }
-
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
     try {
-      await setSubtasks(taskId, subtasksIds);
+      await deleteTask(id);
+      navigate("/");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleCreate = async (data: CreateTaskDto) => {
+    try {
+      await createTask(data);
       await fetchTask(taskId);
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleAddSubtasks = async (newSubtasksIds: number[]) => {
+    if (taskId === null || !task) {
+      console.error("Can't add subtasks to non-existing task");
+      return;
+    }
+
+    const currentSubtasksIds =
+      task.subtasks?.map((subtask) => subtask.id) || [];
+    const allSubtasksIds = Array.from(
+      new Set([...currentSubtasksIds, ...newSubtasksIds])
+    );
+
+    try {
+      await setSubtasks(taskId, allSubtasksIds);
+      await fetchTask(taskId);
+      setIsSelectionOpen(false);
+    } catch (error) {
+      console.error("Failed to update subtasks:", error);
+    }
+  };
+
+  const handleRemoveSubtask = async (subtaskId: number) => {
+    if (taskId === null || !task) return;
+
+    if (
+      !confirm("Are you sure you want to remove this task from subtasks list?")
+    ) {
+      return;
+    }
+
+    try {
+      const updatedSubtasksIds = (task.subtasks || [])
+        .map((s) => s.id)
+        .filter((id) => id !== subtaskId);
+
+      await setSubtasks(taskId, updatedSubtasksIds);
+      await fetchTask(taskId);
+    } catch (error) {
+      console.error("Failed to remove subtask:", error);
+    }
+  };
+
+  const openEditModal = (task: Task) => {
+    setEditingTask(task);
+    setIsFormOpen(true);
+  };
+
+  const openSubtaskModal = () => {
+    setIsSelectionOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setEditingTask(undefined);
+    setIsFormOpen(true);
   };
 
   if (isLoading)
@@ -68,7 +152,6 @@ export const TaskDetail: React.FC = () => {
     );
 
   const subtasks = task.subtasks || [];
-  console.log(subtasks, task.subtasks);
   const completedSubtasks = subtasks.filter(
     (s) => s.status === TaskStatus.DONE
   ).length;
@@ -90,10 +173,16 @@ export const TaskDetail: React.FC = () => {
             ← Back to Dashboard
           </button>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+            <button
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              onClick={() => openEditModal(task)}
+            >
               Edit
             </button>
-            <button className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <button
+              className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              onClick={() => handleDelete(task.id)}
+            >
               Delete
             </button>
           </div>
@@ -113,74 +202,111 @@ export const TaskDetail: React.FC = () => {
                 </p>
               </div>
 
-              <hr className="border-gray-50 mb-8" />
+              {task.parentId === null && (
+                <>
+                  <hr className="border-gray-50 mb-8" />
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-gray-800">Subtasks</h3>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-blue-600">
-                      {progress}%
-                    </span>
-                    <div className="w-24 bg-gray-100 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-blue-600 h-full transition-all duration-500"
-                        style={{ width: `${progress}%` }}
-                      ></div>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-bold text-gray-800">
+                        Subtasks
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-blue-600">
+                          {progress}%
+                        </span>
+                        <div className="w-24 bg-gray-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-blue-600 h-full transition-all duration-500"
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {subtasks.length > 0 ? (
+                        subtasks.map((subtask) => (
+                          <div
+                            key={subtask.id}
+                            className="flex items-center gap-4 p-4 rounded-xl border border-gray-50 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all group cursor-pointer"
+                            onClick={() =>
+                              navigate(`/task/${subtask.id}`, {
+                                state: { task: subtask },
+                              })
+                            }
+                          >
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                subtask.status === TaskStatus.DONE
+                                  ? "bg-green-500"
+                                  : "bg-gray-300"
+                              }`}
+                            />
+                            <span
+                              className={`flex-1 font-medium ${
+                                subtask.status === TaskStatus.DONE
+                                  ? "line-through text-gray-400"
+                                  : "text-gray-700"
+                              }`}
+                            >
+                              {subtask.title}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  priorityColors[subtask.priority]
+                                }`}
+                              >
+                                {subtask.priority}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveSubtask(subtask.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                title="Remove from subtasks"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-400 text-sm italic">
+                          No subtasks added to this task.
+                        </p>
+                      )}
+                      <button
+                        className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
+                        onClick={openSubtaskModal}
+                      >
+                        ↑ Add subtask
+                      </button>
+                      <button
+                        className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
+                        onClick={openCreateModal}
+                      >
+                        + Create new subtask
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-3">
-                  {subtasks.length > 0 ? (
-                    subtasks.map((subtask) => (
-                      <div
-                        key={subtask.id}
-                        className="flex items-center gap-4 p-4 rounded-xl border border-gray-50 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all group cursor-pointer"
-                        onClick={() =>
-                          navigate(`/task/${subtask.id}`, {
-                            state: { task: subtask },
-                          })
-                        }
-                      >
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            subtask.status === TaskStatus.DONE
-                              ? "bg-green-500"
-                              : "bg-gray-300"
-                          }`}
-                        />
-                        <span
-                          className={`flex-1 font-medium ${
-                            subtask.status === TaskStatus.DONE
-                              ? "line-through text-gray-400"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          {subtask.title}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            priorityColors[subtask.priority]
-                          }`}
-                        >
-                          {subtask.priority}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-sm italic">
-                      No subtasks added to this task.
-                    </p>
-                  )}
-                  <button
-                    className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
-                    onClick={openCreateModal}
-                  >
-                    + Add new subtask
-                  </button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -249,10 +375,17 @@ export const TaskDetail: React.FC = () => {
         </div>
       </main>
       <SubtaskSelection
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        isOpen={isSelectionOpen}
+        onClose={() => setIsSelectionOpen(false)}
         onSubmit={handleAddSubtasks}
         initialTaskId={taskId}
+      />
+      <TaskForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={editingTask ? handleUpdate : handleCreate}
+        initialData={editingTask}
+        parentId={task.id}
       />
     </div>
   );
