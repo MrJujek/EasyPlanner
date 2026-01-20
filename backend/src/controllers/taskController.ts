@@ -1,8 +1,8 @@
 import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
-import { Task } from "../model/Task";
+import { Task, TaskPriority, TaskStatus } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import { In, IsNull } from "typeorm";
+import { In, IsNull, Like, type FindOptionsWhere } from "typeorm";
 
 const taskRepository = AppDataSource.getRepository(Task);
 
@@ -36,8 +36,29 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
+    const { search, status, priority } = req.params;
+
+    const where: FindOptionsWhere<Task> = { userId };
+
+    if (status) {
+      where.status = status as TaskStatus;
+    }
+
+    if (priority) {
+      where.priority = priority as TaskPriority;
+    }
+
+    if (search) {
+      where.title = Like(`%${search}`);
+    }
+
     const tasks = await taskRepository.find({
-      where: { userId },
+      where: search
+        ? [
+            { ...where, title: Like(`${search}`) },
+            { ...where, description: Like(`${search}`) },
+          ]
+        : where,
       order: { createdAt: "DESC" },
       relations: ["subtasks"],
     });
@@ -132,7 +153,7 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
     const parentId = Number(newParentId);
 
     const newParent = await taskRepository.findOne({
-      where: { id: parentId, userId }
+      where: { id: parentId, userId },
     });
 
     if (!newParent) {
@@ -141,7 +162,7 @@ export const updateTaskParent = async (req: AuthRequest, res: Response) => {
 
     const updateResult = await taskRepository.update(
       { id: taskId, userId },
-      { parentId: parentId }
+      { parentId: parentId },
     );
 
     if (updateResult.affected === 0) {
