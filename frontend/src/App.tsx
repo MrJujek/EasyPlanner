@@ -8,23 +8,23 @@ import { Dashboard } from "./pages/Dashboard";
 import { TaskDetail } from "./pages/task/TaskDetail";
 
 function App() {
-    return (
-        <AuthProvider>
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/login" element={<Login />} />
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
 
-                    <Route element={<ProtectedRoute />}>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/task/:id" element={<TaskDetail/>}/>
-                    </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/task/:id" element={<TaskDetail />} />
 
-                    <Route path="/*" element={<NotFound />} />
-                </Routes>
-            </BrowserRouter>
-        </AuthProvider>
-    );
+            <Route path="/*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
 }
 
 export default App;
