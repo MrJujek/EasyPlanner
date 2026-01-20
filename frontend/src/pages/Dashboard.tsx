@@ -13,6 +13,7 @@ import { TaskForm } from "../components/TaskForm";
 import { useAuth } from "../contexts/AuthContextType";
 import { useDebounce } from "../hooks/useDebounce";
 import { SearchBar } from "../components/SearchBar";
+import { FilterSelect } from "../components/FilterSelect";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [priority, setPriority] = useState("");
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -31,7 +34,10 @@ export const Dashboard = () => {
       task.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       task.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-    return matchesSearch;
+    const matchesStatus = status ? task.status === status : true;
+    const matchesPriority = priority ? task.priority === priority : true;
+
+    return matchesPriority && matchesSearch && matchesStatus;
   });
 
   const fetchTasks = async () => {
@@ -121,17 +127,39 @@ export const Dashboard = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-gray-800">My Tasks</h2>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search tasks..."
-          />
-          <button
-            onClick={openCreateModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2"
-          >
-            <span>+</span> New Task
-          </button>
+          <div className="flex gap-4">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search tasks..."
+            />
+            <FilterSelect
+              value={priority}
+              onChange={setPriority}
+              defaultLabel="All Priorities"
+              options={[
+                { label: "Low", value: "LOW" },
+                { label: "Medium", value: "MEDIUM" },
+                { label: "High", value: "HIGH" },
+              ]}
+            />
+            <FilterSelect
+              value={status}
+              onChange={setStatus}
+              defaultLabel="All Statuses"
+              options={[
+                { label: "To Do", value: "TODO" },
+                { label: "In Progress", value: "IN_PROGRESS" },
+                { label: "Done", value: "DONE" },
+              ]}
+            />
+            <button
+              onClick={openCreateModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2"
+            >
+              <span>+</span> New Task
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
