@@ -11,6 +11,8 @@ import {
 import { TaskCard } from "../components/TaskCard";
 import { TaskForm } from "../components/TaskForm";
 import { useAuth } from "../contexts/AuthContextType";
+import { useDebounce } from "../hooks/useDebounce";
+import { SearchBar } from "../components/SearchBar";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +21,18 @@ export const Dashboard = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+
+  const debouncedSearch = useDebounce(search, 300);
+
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch =
+      task.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      task.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+    return matchesSearch;
+  });
 
   const fetchTasks = async () => {
     try {
@@ -66,7 +80,7 @@ export const Dashboard = () => {
 
   const openDetails = async (id: number) => {
     try {
-      const task : Task = await getTask(id);
+      const task: Task = await getTask(id);
       navigate(`/task/${id}`, { state: { task } });
     } catch (error) {
       console.error(error);
@@ -107,6 +121,11 @@ export const Dashboard = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-gray-800">My Tasks</h2>
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search tasks..."
+          />
           <button
             onClick={openCreateModal}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2"
@@ -119,19 +138,21 @@ export const Dashboard = () => {
           <div className="flex justify-center py-20">
             <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
           </div>
-        ) : tasks.length === 0 ? (
+        ) : filteredTasks.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 text-lg mb-4">You have no tasks yet.</p>
+            <p className="text-gray-500 text-lg mb-4">
+              No tasks found matching your filters.
+            </p>
             <button
               onClick={openCreateModal}
               className="text-blue-600 font-semibold hover:underline"
             >
-              Create your first task
+              Create a new task
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tasks.map((task) => (
+            {filteredTasks.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
