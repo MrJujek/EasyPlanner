@@ -56,6 +56,9 @@ export class Task {
   @CreateDateColumn()
   createdAt!: Date;
 
+  @Column({ type: "timestamp", nullable: true })
+  completedAt?: Date | null;
+
   @Column({ nullable: true })
   parentId: number | null;
 

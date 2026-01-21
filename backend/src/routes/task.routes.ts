@@ -9,6 +9,7 @@ import {
   toggleSubtasks,
   deleteTask,
   getTasksNoParents,
+  getCompletedTasks,
 } from "../controllers/taskController";
 
 const router = express.Router();
@@ -25,5 +26,7 @@ router.delete("/tasks/:id", authenticateToken, deleteTask);
 
 router.get("/subtasks", authenticateToken, getTasksNoParents);
 router.put("/subtasks/:id", authenticateToken, toggleSubtasks);
+
+router.get("/history", authenticateToken, getCompletedTasks);
 
 export default router;
