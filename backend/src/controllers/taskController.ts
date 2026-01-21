@@ -69,6 +69,29 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getCompletedTasks = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const tasks = await taskRepository.find({
+      where: {
+        userId,
+        status: TaskStatus.DONE,
+      },
+      order: {
+        completedAt: "DESC",
+      },
+      relations: ["subtasks"],
+    });
+
+    res.json(tasks);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching completed tasks", error });
+  }
+};
+
 export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -131,7 +154,15 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
     if (priority !== undefined) task.priority = priority;
-    if (status !== undefined) task.status = status;
+
+    if (status !== undefined && status !== task.status) {
+      if (status === TaskStatus.DONE) {
+        task.completedAt = new Date();
+      } else if (task.status === TaskStatus.DONE) {
+        task.completedAt = null;
+      }
+      task.status = status;
+    }
 
     await taskRepository.save(task);
     res.json(task);

@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { TaskDetail } from "./pages/task/TaskDetail";
+import { Archive } from "./pages/history/Archive";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/task/:id" element={<TaskDetail />} />
+            <Route path="/history" element={<Archive />}/>
 
             <Route path="/*" element={<NotFound />} />
           </Route>
