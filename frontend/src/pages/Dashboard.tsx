@@ -14,6 +14,7 @@ import { useAuth } from "../contexts/AuthContextType";
 import { useDebounce } from "../hooks/useDebounce";
 import { SearchBar } from "../components/SearchBar";
 import { FilterSelect } from "../components/FilterSelect";
+import { Header } from "../components/Header";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -105,24 +106,7 @@ export const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            EasyPlanner
-          </h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600 font-medium">
-              Hello, {user?.username || "User"}
-            </span>
-            <button
-              onClick={logout}
-              className="text-sm text-gray-500 hover:text-red-500 font-semibold transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header username={user?.username || "User"} logout={logout}/>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
