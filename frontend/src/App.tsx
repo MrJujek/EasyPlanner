@@ -7,6 +7,7 @@ import { NotFound } from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { TaskDetail } from "./pages/task/TaskDetail";
 import { Archive } from "./pages/history/Archive";
+import { FriendsPage } from "./pages/FriendsPage";
 
 function App() {
   return (
@@ -19,7 +20,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/task/:id" element={<TaskDetail />} />
-            <Route path="/history" element={<Archive />}/>
+            <Route path="/history" element={<Archive />} />
+            <Route path="/friends" element={<FriendsPage />} />
 
             <Route path="/*" element={<NotFound />} />
           </Route>
