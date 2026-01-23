@@ -1,5 +1,6 @@
 import React from "react";
 import DropdownMenu from "./DropdownMenu";
+import { LogOut } from "lucide-react";
 
 interface HeaderProps {
   username?: string;
@@ -26,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ username, logout }) => {
             className="flex h-10 w-10 items-center justify-center rounded bg-red-600 text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
             title="Wyjdź"
           >
-            <span className="text-lg font-bold tracking-tighter">[-&gt;</span>
+            <LogOut />
           </button>
         </div>
       </div>
