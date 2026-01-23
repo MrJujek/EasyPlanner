@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { getCompletedTasks } from "../../api/taskApi";
 import { Task, priorityColors, statusColors } from "../../types/task";
-import { useAuth } from "../../contexts/AuthContextType";
-import { Header } from "../../components/Header";
 
 export const Archive = () => {
-  const { user, logout } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,9 +30,7 @@ export const Archive = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
-      <Header username={user?.username} logout={logout} />
-
+    <div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-10">
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">

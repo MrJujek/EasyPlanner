@@ -10,16 +10,13 @@ import {
 } from "../api/taskApi";
 import { TaskCard } from "../components/TaskCard";
 import { TaskForm } from "../components/TaskForm";
-import { useAuth } from "../contexts/AuthContextType";
 import { useDebounce } from "../hooks/useDebounce";
 import { SearchBar } from "../components/SearchBar";
 import { FilterSelect } from "../components/FilterSelect";
-import { Header } from "../components/Header";
 import { CirclePlus } from "lucide-react";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
@@ -106,9 +103,7 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header username={user?.username || "User"} logout={logout} />
-
+    <div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-gray-800">My Tasks</h2>
