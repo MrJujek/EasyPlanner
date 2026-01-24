@@ -57,7 +57,7 @@ export class Task {
   createdAt!: Date;
 
   @Column({ type: "date", nullable: true })
-  plannedFor?: string | null;
+  plannedFor?: Date | null;
 
   @Column({ type: "timestamp", nullable: true })
   completedAt?: Date | null;
