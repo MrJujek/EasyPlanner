@@ -10,7 +10,8 @@ import {
   deleteTask,
   getTasksNoParents,
   getCompletedTasks,
-  getMyDay
+  getMyDay,
+  batchUpdatePlannedDate,
 } from "../controllers/taskController";
 
 const router = express.Router();
@@ -31,5 +32,6 @@ router.put("/subtasks/:id", authenticateToken, toggleSubtasks);
 router.get("/history", authenticateToken, getCompletedTasks);
 
 router.get("/my-day", authenticateToken, getMyDay);
+router.patch("/my-day", authenticateToken, batchUpdatePlannedDate);
 
 export default router;

@@ -289,3 +289,26 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Error fetching My Day tasks", error });
   }
 };
+
+export const batchUpdatePlannedDate = async (req: AuthRequest, res: Response) => {
+  try {
+    const { updates } = req.body as { updates: { id: number; plannedFor: string | null }[] };
+    const userId = req.user?.userId;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const updatePromises = updates.map((item) =>
+      taskRepository.update(
+        { id: item.id, userId }, 
+        { plannedFor: item.plannedFor }
+      )
+    );
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({ message: "Batch date update successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error during batch date update", error });
+  }
+};
