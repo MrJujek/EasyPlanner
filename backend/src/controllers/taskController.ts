@@ -142,7 +142,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     if (!id) return res.status(400).json({ message: "ID is required" });
-    const { title, description, priority, status } = req.body;
+    const { title, description, priority, status, plannedFor } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -163,6 +163,8 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       }
       task.status = status;
     }
+
+    if (plannedFor !== undefined) task.plannedFor = plannedFor;
 
     await taskRepository.save(task);
     res.json(task);
@@ -286,40 +288,5 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ message: "Error fetching My Day tasks", error });
-  }
-};
-
-export const addPlannedDate = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params as { id: string };
-    const { date } = req.body;
-    const userId = req.user?.userId;
-
-    const task = await taskRepository.findOneBy({ id: parseInt(id), userId });
-    if (!task) return res.status(404).json({ message: "Task not found" });
-
-    task.plannedFor = date || new Date().toISOString().split("T")[0];
-
-    await taskRepository.save(task);
-    res.json(task);
-  } catch (error) {
-    res.status(500).json({ message: "Error adding planned date", error });
-  }
-};
-
-export const removePlannedDate = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params as { id: string };
-    const userId = req.user?.userId;
-
-    const task = await taskRepository.findOneBy({ id: parseInt(id), userId });
-    if (!task) return res.status(404).json({ message: "Task not found" });
-
-    task.plannedFor = null;
-
-    await taskRepository.save(task);
-    res.json({ message: "Removed planned date", task });
-  } catch (error) {
-    res.status(500).json({ message: "Error removing planned date", error });
   }
 };
