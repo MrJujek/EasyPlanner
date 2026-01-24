@@ -30,6 +30,7 @@ export interface Task {
   priority: TaskPriority;
   userId: number;
   createdAt: string;
+  plannedFor: string;
   completedAt: string | null;
   parentId: number | null;
   subtasks?: Task[];

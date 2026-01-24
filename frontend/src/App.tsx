@@ -7,24 +7,29 @@ import { NotFound } from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { TaskDetail } from "./pages/task/TaskDetail";
 import { Archive } from "./pages/history/Archive";
+import { HeroUIProvider } from "@heroui/react";
+import { MyDay } from "./pages/my-day/MyDay";
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
+      <HeroUIProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/task/:id" element={<TaskDetail />} />
-            <Route path="/history" element={<Archive />}/>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/task/:id" element={<TaskDetail />} />
+              <Route path="/history" element={<Archive />} />
+              <Route path="/my-day" element={<MyDay />} />
 
-            <Route path="/*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+              <Route path="/*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </HeroUIProvider>
     </AuthProvider>
   );
 }
