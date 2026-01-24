@@ -279,8 +279,7 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
     const tasks = await taskRepository.find({
       where: {
         userId,
-        plannedFor: today as any,
-        status: Not(TaskStatus.DONE),
+        plannedFor: today as any
       },
       order: { priority: "DESC" },
     });
