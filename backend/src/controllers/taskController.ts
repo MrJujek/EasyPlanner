@@ -9,10 +9,27 @@ const taskRepository = AppDataSource.getRepository(Task);
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, status, priority, parentId } = req.body;
-    const userId = req.user?.userId;
+    let userId = req.user?.userId;
     const parentTaskId = parentId ? Number(parentId) : null;
+    let sharedWithId: number | null = null;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    if (parentTaskId) {
+      const parentTask = await taskRepository.findOne({
+        where: { id: parentTaskId },
+      });
+
+      if (parentTask) {
+        if (
+          parentTask.userId !== userId &&
+          parentTask.sharedWithId === userId
+        ) {
+          userId = parentTask.userId;
+          sharedWithId = parentTask.sharedWithId;
+        }
+      }
+    }
 
     const task = taskRepository.create({
       title,
@@ -21,6 +38,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       priority,
       userId,
       parentId: parentTaskId,
+      sharedWithId: sharedWithId,
     });
 
     await taskRepository.save(task);
@@ -156,8 +174,14 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
 export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
-    if (!id) return res.status(400).json({ message: "ID is required" });
-    const { title, description, priority, status, plannedFor } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "ID is required" });
+    }
+
+    const { title, description, priority, status, plannedFor, sharedWithId } =
+      req.body;
+
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -170,26 +194,36 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       relations: ["user", "sharedWith"],
     });
 
-    if (!task) return res.status(404).json({ message: "Task not found" });
+    if (!task)
+      return res
+        .status(404)
+        .json({ message: "Task not found or you are not the owner" });
 
-    const isOwner = task.userId === userId;
-    const isSharedUser = task.sharedWithId === userId;
-
-    if (!isOwner && !isSharedUser) {
+    if (task.userId !== userId && task.sharedWithId !== userId) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    if (isSharedUser) {
+    if (task.userId !== userId) {
       if (
         title !== undefined ||
         description !== undefined ||
         priority !== undefined ||
-        plannedFor !== undefined
+        plannedFor !== undefined ||
+        (sharedWithId !== undefined && sharedWithId !== task.sharedWithId)
       ) {
         return res
           .status(403)
           .json({ message: "You can only update the status of this task" });
       }
+    }
+
+    if (userId === task.userId && sharedWithId !== undefined) {
+      task.sharedWithId = sharedWithId;
+
+      await taskRepository.update(
+        { parentId: task.id },
+        { sharedWithId: sharedWithId },
+      );
     }
 
     if (title !== undefined) task.title = title;
@@ -225,6 +259,7 @@ export const shareTask = async (req: AuthRequest, res: Response) => {
 
     const task = await taskRepository.findOne({
       where: { id: Number(id), userId },
+      relations: ["subtasks"],
     });
 
     if (!task)
@@ -232,8 +267,14 @@ export const shareTask = async (req: AuthRequest, res: Response) => {
         .status(404)
         .json({ message: "Task not found or you are not the owner" });
 
-    task.sharedWithId = sharedWithId;
-    await taskRepository.save(task);
+    await taskRepository.save({
+      ...task,
+      sharedWithId,
+    });
+
+    if (task.subtasks.length > 0) {
+      await taskRepository.update({ parentId: task.id }, { sharedWithId });
+    }
 
     const updatedTask = await taskRepository.findOne({
       where: { id: Number(id) },
