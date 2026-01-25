@@ -10,18 +10,15 @@ import {
 } from "../../api/taskApi";
 import { TaskCard } from "../../components/TaskCard";
 import { TaskForm } from "../../components/TaskForm";
-import { useAuth } from "../../contexts/AuthContextType";
 import { useDebounce } from "../../hooks/useDebounce";
 import { SearchBar } from "../../components/SearchBar";
 import { FilterSelect } from "../../components/FilterSelect";
-import { Header } from "../../components/Header";
 import { Spinner, Button } from "@heroui/react";
 import { CalendarPlus, CalendarClock, CheckCircle } from "lucide-react";
 import { MyDayTasksSelection } from "../../components/MyDayTasksSelection";
 
 export const MyDay: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
@@ -121,9 +118,7 @@ export const MyDay: React.FC = () => {
   const totalCount = tasks.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header username={user?.username || "User"} logout={logout} />
-
+    <>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-gray-800">My Day</h2>
@@ -240,6 +235,6 @@ export const MyDay: React.FC = () => {
         onSubmit={handleBatchUpdateMyDay}
         addMode={addMode}
       />
-    </div>
+    </>
   );
 };
