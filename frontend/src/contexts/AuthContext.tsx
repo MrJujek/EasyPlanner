@@ -1,5 +1,6 @@
 import { useState, ReactNode } from "react";
-import { AuthContext, User } from "./AuthContextType";
+import { AuthContext } from "./AuthContextType";
+import { User } from "../types/user";
 import api from "../api/axiosInstance";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
