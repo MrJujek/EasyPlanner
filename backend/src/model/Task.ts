@@ -49,16 +49,16 @@ export class Task {
   @Column()
   userId!: number;
 
-  @Column({ nullable: true })
-  assigneeId!: number | null;
-
   @ManyToOne(() => User)
   @JoinColumn({ name: "userId" })
   user!: User;
 
+  @Column({ nullable: true })
+  sharedWithId?: number | null;
+
   @ManyToOne(() => User)
-  @JoinColumn({ name: "assigneeId" })
-  assignee?: User;
+  @JoinColumn({ name: "sharedWithId" })
+  sharedWith?: User;
 
   @CreateDateColumn()
   createdAt!: Date;

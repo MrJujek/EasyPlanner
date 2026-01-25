@@ -8,11 +8,9 @@ const taskRepository = AppDataSource.getRepository(Task);
 
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, status, priority, parentId, assigneeId } =
-      req.body;
+    const { title, description, status, priority, parentId } = req.body;
     const userId = req.user?.userId;
     const parentTaskId = parentId ? Number(parentId) : null;
-    const taskAssigneeId = assigneeId ? Number(assigneeId) : null;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -23,7 +21,6 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       priority,
       userId,
       parentId: parentTaskId,
-      assigneeId: taskAssigneeId,
     });
 
     await taskRepository.save(task);
@@ -43,7 +40,8 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 
     const baseWhere: FindOptionsWhere<Task>[] = [
       { userId },
-      { assigneeId: userId },
+
+      { sharedWithId: userId },
     ];
 
     const where: FindOptionsWhere<Task>[] = baseWhere.map((w) => {
@@ -68,7 +66,7 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     const tasks = await taskRepository.find({
       where: finalWhere,
       order: { createdAt: "DESC" },
-      relations: ["subtasks", "assignee", "user"],
+      relations: ["subtasks", "user", "sharedWith"],
     });
     res.json(tasks);
   } catch (error) {
@@ -88,12 +86,12 @@ export const getCompletedTasks = async (req: AuthRequest, res: Response) => {
           userId,
           status: TaskStatus.DONE,
         },
-        { assigneeId: userId, status: TaskStatus.DONE },
+        { sharedWithId: userId, status: TaskStatus.DONE },
       ],
       order: {
         completedAt: "DESC",
       },
-      relations: ["subtasks", "assignee", "user"],
+      relations: ["subtasks", "user", "sharedWith"],
     });
 
     res.json(tasks);
@@ -114,10 +112,10 @@ export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
           userId,
           parentId: IsNull(),
         },
-        { assigneeId: userId, parentId: IsNull() },
+        { sharedWithId: userId, parentId: IsNull() },
       ],
       order: { createdAt: "DESC" },
-      relations: ["subtasks", "assignee", "user"],
+      relations: ["subtasks", "user", "sharedWith"],
     });
     res.json(tasks);
   } catch (error) {
@@ -138,10 +136,10 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
           userId,
           id: Number(id),
         },
-        { assigneeId: userId, id: Number(id) },
+        { sharedWithId: userId, id: Number(id) },
       ],
       order: { createdAt: "DESC" },
-      relations: ["subtasks", "assignee", "user"],
+      relations: ["subtasks", "user", "sharedWith"],
     });
 
     if (!task) {
@@ -159,22 +157,44 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     if (!id) return res.status(400).json({ message: "ID is required" });
-    const { title, description, priority, status, plannedFor, assigneeId } =
-      req.body;
+    const { title, description, priority, status, plannedFor } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const task = await taskRepository.findOneBy({ id: parseInt(id), userId });
+    const task = await taskRepository.findOne({
+      where: [
+        { id: parseInt(id), userId },
+        { id: parseInt(id), sharedWithId: userId },
+      ],
+      relations: ["user", "sharedWith"],
+    });
 
     if (!task) return res.status(404).json({ message: "Task not found" });
+
+    const isOwner = task.userId === userId;
+    const isSharedUser = task.sharedWithId === userId;
+
+    if (!isOwner && !isSharedUser) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (isSharedUser) {
+      if (
+        title !== undefined ||
+        description !== undefined ||
+        priority !== undefined ||
+        plannedFor !== undefined
+      ) {
+        return res
+          .status(403)
+          .json({ message: "You can only update the status of this task" });
+      }
+    }
 
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
     if (priority !== undefined) task.priority = priority;
-    if (assigneeId !== undefined) {
-      task.assigneeId = assigneeId === null ? undefined : assigneeId;
-    }
 
     if (status !== undefined && status !== task.status) {
       if (status === TaskStatus.DONE) {
@@ -192,6 +212,38 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating task", error });
+  }
+};
+
+export const shareTask = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { sharedWithId } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const task = await taskRepository.findOne({
+      where: { id: Number(id), userId },
+    });
+
+    if (!task)
+      return res
+        .status(404)
+        .json({ message: "Task not found or you are not the owner" });
+
+    task.sharedWithId = sharedWithId;
+    await taskRepository.save(task);
+
+    const updatedTask = await taskRepository.findOne({
+      where: { id: Number(id) },
+      relations: ["subtasks", "user", "sharedWith"],
+    });
+
+    res.json(updatedTask);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error sharing task", error });
   }
 };
 
@@ -303,9 +355,9 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
           userId,
           plannedFor: today as any,
         },
-        { assigneeId: userId, plannedFor: today as any },
+        { sharedWithId: userId, plannedFor: today as any },
       ],
-      relations: ["subtasks", "assignee", "user"],
+      relations: ["subtasks", "user", "sharedWith"],
       order: { priority: "DESC" },
     });
 

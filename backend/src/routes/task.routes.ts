@@ -12,6 +12,7 @@ import {
   getCompletedTasks,
   getMyDay,
   batchUpdatePlannedDate,
+  shareTask,
 } from "../controllers/taskController";
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.post("/tasks", authenticateToken, createTask);
 router.get("/tasks", authenticateToken, getTasks);
 router.get("/tasks/:id", authenticateToken, getSingleTask);
 router.put("/tasks/:id", authenticateToken, updateTask);
+router.patch("/tasks/:id/share", authenticateToken, shareTask);
 router.patch("/tasks/:id/parent", authenticateToken, updateTaskParent);
 router.patch("/tasks/:id/subtasks", authenticateToken, toggleSubtasks);
 router.delete("/tasks/:id", authenticateToken, deleteTask);
