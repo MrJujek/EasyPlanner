@@ -39,25 +39,29 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     addMode ? "today" : "schedule",
   );
 
+  const currentTodayStr = useMemo(
+    () => today(getLocalTimeZone()).toString(),
+    [],
+  );
+
   const loadAllTasks = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [resToday, resSchedule] = await Promise.all([
+      const [resAllTasks, resMyDay] = await Promise.all([
         getTasks(),
         getMyDayTasks(),
       ]);
 
-      const filterDone = (tasks: Task[]) =>
+      const filterNotDone = (tasks: Task[]) =>
         tasks.filter((t) => t.status !== TaskStatus.DONE);
 
-      const filteredToday = filterDone(resToday);
-      const filteredSchedule = filterDone(resSchedule);
+      const allNotDone = filterNotDone(resAllTasks);
+      const myDayNotDone = filterNotDone(resMyDay);
 
-      setTodayTasks(filteredToday);
-      setScheduleTasks(filteredSchedule);
+      setTodayTasks(allNotDone);
+      setScheduleTasks(myDayNotDone);
 
-      const combined = [...filteredToday, ...filteredSchedule];
-      const prefilled: [number, string | null][] = combined
+      const prefilled: [number, string | null][] = allNotDone
         .filter((t) => t.plannedFor)
         .map((t) => [t.id, t.plannedFor]);
 
@@ -92,21 +96,23 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       const existingPair = prev.find(([id]) => id === toggledId);
 
       if (existingPair) {
-        return existingPair[1] === null
-          ? prev.filter(([id]) => id !== toggledId)
-          : prev.map((pair) =>
+        if (existingPair[1] === currentTodayStr) {
+          return prev.map((pair) =>
             pair[0] === toggledId ? [toggledId, null] : pair,
           );
+        } else {
+          return prev.map((pair) =>
+            pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
+          );
+        }
       } else {
-        const dateStr = today(getLocalTimeZone()).toString();
-        return [...prev, [toggledId, dateStr]];
+        return [...prev, [toggledId, currentTodayStr]];
       }
     });
   };
 
   const updateTaskDate = (toggledId: number, dateValue: DateValue | null) => {
     const dateStr = dateValue ? dateValue.toString() : null;
-
     setIdsToDate((prev) => {
       const exists = prev.some(([id]) => id === toggledId);
       if (exists) {
@@ -124,16 +130,13 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       await onSubmit(idsToDate);
       onClose();
     } catch (error) {
-      console.error("Failed to update tasks:", error);
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const currentTasks = mode === "today" ? todayTasks : scheduleTasks;
-  const selectedIds = idsToDate
-    .filter(([, date]) => date !== null)
-    .map(([id]) => id);
 
   return (
     <Modal
@@ -184,116 +187,121 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 p-4">
-                  {currentTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className={`flex items-center justify-between p-3 rounded-medium border transition-all cursor-pointer hover:bg-default-50 ${selectedIds.includes(task.id)
-                        ? "border-primary bg-primary-50/50"
-                        : "border-default-200"
-                        }`}
-                      onClick={(e) => {
-                        if (
-                          (e.target as HTMLElement).closest(
-                            ".datepicker-container",
-                          )
-                        )
-                          return;
-                        if (mode === "today") toggleTask(task.id);
-                      }}
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-12 shrink-0 flex justify-center">
-                          {mode === "today" ? (
-                            <Checkbox
-                              isSelected={selectedIds.includes(task.id)}
-                              onValueChange={() => toggleTask(task.id)}
-                            />
-                          ) : (
-                            <div className="relative flex items-center justify-center datepicker-container">
-                              <DatePicker
-                                aria-label="Pick date"
-                                variant="bordered"
-                                minValue={today(getLocalTimeZone())}
-                                value={
-                                  idsToDate.find(([id]) => id === task.id)?.[1]
-                                    ? parseDate(
-                                      idsToDate.find(
-                                        ([id]) => id === task.id,
-                                      )![1] as string,
-                                    )
-                                    : null
-                                }
-                                onChange={(date) =>
-                                  updateTaskDate(task.id, date)
-                                }
-                                className="w-[40px] **:data-[slot=input-wrapper]:px-0 **:data-[slot=input-wrapper]:border-none **:data-[slot=input-wrapper]:bg-transparent"
-                                showMonthAndYearPickers
-                                selectorIcon={
-                                  <div className="flex items-center justify-center w-full h-full">
-                                    <CalendarIcon
-                                      className={`w-5 h-5 ${selectedIds.includes(task.id) ? "text-secondary" : "text-default-400"}`}
-                                    />
-                                  </div>
-                                }
-                              />
-                              {idsToDate.find(
-                                ([id]) => id === task.id,
-                              )?.[1] && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      updateTaskDate(task.id, null);
-                                    }}
-                                    className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
-                                  >
-                                    <X className="w-2 h-2" />
-                                  </button>
-                                )}
-                            </div>
-                          )}
-                        </div>
-                        <span className="font-medium text-foreground truncate select-none">
-                          {task.title}
-                        </span>
-                      </div>
+                  {currentTasks.map((task) => {
+                    const taskDateEntry = idsToDate.find(([id]) => id === task.id);
+                    const isChecked = taskDateEntry && taskDateEntry[1] === currentTodayStr;
 
-                      <div className="flex items-center gap-2 shrink-0 ml-4">
-                        <Chip
-                          size="sm"
-                          variant="flat"
-                          className={statusColors[task.status]}
-                        >
-                          {task.status.replace("_", " ")}
-                        </Chip>
-                        <Chip
-                          size="sm"
-                          variant="flat"
-                          className={priorityColors[task.priority]}
-                        >
-                          {task.priority}
-                        </Chip>
-                        {idsToDate.some(([id]) => id === task.id) &&
-                          mode === "schedule" && (
-                            <Chip
-                              size="sm"
-                              variant="flat"
-                              color={
-                                idsToDate.find(
+                    return (
+                      <div
+                        key={task.id}
+                        className={`flex items-center justify-between p-3 rounded-medium border transition-all cursor-pointer hover:bg-default-50 ${isChecked
+                          ? "border-primary bg-primary-50/50"
+                          : "border-default-200"
+                          }`}
+                        onClick={(e) => {
+                          if (
+                            (e.target as HTMLElement).closest(
+                              ".datepicker-container",
+                            )
+                          )
+                            return;
+                          if (mode === "today") toggleTask(task.id);
+                        }}
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="w-12 shrink-0 flex justify-center">
+                            {mode === "today" ? (
+                              <Checkbox
+                                isSelected={!!isChecked}
+                                onValueChange={() => toggleTask(task.id)}
+                              />
+                            ) : (
+                              <div className="relative flex items-center justify-center datepicker-container">
+                                <DatePicker
+                                  aria-label="Pick date"
+                                  variant="bordered"
+                                  minValue={today(getLocalTimeZone())}
+                                  value={
+                                    idsToDate.find(([id]) => id === task.id)?.[1]
+                                      ? parseDate(
+                                        idsToDate.find(
+                                          ([id]) => id === task.id,
+                                        )![1] as string,
+                                      )
+                                      : null
+                                  }
+                                  onChange={(date) =>
+                                    updateTaskDate(task.id, date)
+                                  }
+                                  className="w-[40px] **:data-[slot=input-wrapper]:px-0 **:data-[slot=input-wrapper]:border-none **:data-[slot=input-wrapper]:bg-transparent"
+                                  showMonthAndYearPickers
+                                  selectorIcon={
+                                    <div className="flex items-center justify-center w-full h-full">
+                                      <CalendarIcon
+                                        className={`w-5 h-5 ${isChecked ? "text-secondary" : "text-default-400"}`}
+                                      />
+                                    </div>
+                                  }
+                                />
+                                {idsToDate.find(
+                                  ([id]) => id === task.id,
+                                )?.[1] && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateTaskDate(task.id, null);
+                                      }}
+                                      className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
+                                    >
+                                      <X className="w-2 h-2" />
+                                    </button>
+                                  )}
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-medium text-foreground truncate select-none">
+                            {task.title}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            className={statusColors[task.status]}
+                          >
+                            {task.status.replace("_", " ")}
+                          </Chip>
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            className={priorityColors[task.priority]}
+                          >
+                            {task.priority}
+                          </Chip>
+                          {idsToDate.some(([id]) => id === task.id) &&
+                            mode === "schedule" && (
+                              <Chip
+                                size="sm"
+                                variant="flat"
+                                color={
+                                  idsToDate.find(
+                                    (item) => item[0] === task.id,
+                                  )?.[1]
+                                    ? "secondary"
+                                    : "warning"
+                                }
+                                className="hidden sm:flex"
+                              >
+                                {idsToDate.find(
                                   (item) => item[0] === task.id,
-                                )?.[1]
-                                  ? "secondary"
-                                  : "warning"
-                              }
-                              className="hidden sm:flex"
-                            >
-                              {idsToDate.find(
-                                (item) => item[0] === task.id,
-                              )?.[1] || "No date"}
-                            </Chip>
-                          )}
+                                )?.[1] || "No date"}
+                              </Chip>
+                            )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ModalBody>
