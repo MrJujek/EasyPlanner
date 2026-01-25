@@ -2,7 +2,7 @@ import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
 import { Task, TaskPriority, TaskStatus } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import { In, IsNull, Like, type FindOptionsWhere } from "typeorm";
+import { In, IsNull, Like, type FindOptionsWhere, Not } from "typeorm";
 
 const taskRepository = AppDataSource.getRepository(Task);
 
@@ -140,9 +140,9 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
 
 export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     if (!id) return res.status(400).json({ message: "ID is required" });
-    const { title, description, priority, status } = req.body;
+    const { title, description, priority, status, plannedFor } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -163,6 +163,8 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       }
       task.status = status;
     }
+
+    if (plannedFor !== undefined) task.plannedFor = plannedFor;
 
     await taskRepository.save(task);
     res.json(task);
@@ -250,7 +252,7 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
 
 export const deleteTask = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     if (!id) return res.status(400).json({ message: "ID is required" });
     const userId = req.user?.userId;
 
@@ -265,5 +267,48 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error deleting task", error });
+  }
+};
+
+export const getMyDay = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const today = new Date().toISOString().split("T")[0];
+
+    const tasks = await taskRepository.find({
+      where: {
+        userId,
+        plannedFor: today as any
+      },
+      order: { priority: "DESC" },
+    });
+
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching My Day tasks", error });
+  }
+};
+
+export const batchUpdatePlannedDate = async (req: AuthRequest, res: Response) => {
+  try {
+    const { updates } = req.body as { updates: { id: number; plannedFor: string | null }[] };
+    const userId = req.user?.userId;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const updatePromises = updates.map((item) =>
+      taskRepository.update(
+        { id: item.id, userId }, 
+        { plannedFor: item.plannedFor }
+      )
+    );
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({ message: "Batch date update successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error during batch date update", error });
   }
 };

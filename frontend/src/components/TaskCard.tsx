@@ -1,5 +1,7 @@
 import React from "react";
-import { Task, priorityColors, statusColors } from "../types/task";
+import { Task, TaskStatus, priorityColors, statusColors } from "../types/task";
+import { Card, CardBody, Chip, Button, Divider } from "@heroui/react";
+import { Info, Edit3, Trash2, CheckCircle2 } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -14,59 +16,113 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const isDone = task.status === TaskStatus.DONE;
+
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-300 border border-gray-100 relative overflow-hidden">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-800 mb-1">{task.title}</h3>
-          <div className="flex gap-2">
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                priorityColors[task.priority]
-              }`}
-            >
-              {task.priority}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                statusColors[task.status]
-              }`}
-            >
-              {task.status.replace("_", " ")}
-            </span>
+    <Card
+      className={`border-none shadow-md transition-all duration-300 ${
+        isDone
+          ? "bg-green-50/50 dark:bg-green-900/10 ring-1 ring-green-500/30"
+          : "bg-background/60 dark:bg-default-100/50"
+      }`}
+      isHoverable
+    >
+      {isDone && (
+        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green-500 rounded-l-xl" />
+      )}
+
+      <CardBody className={`p-6 ${isDone ? "pl-7" : ""}`}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h3
+                className={`text-xl font-bold ${isDone ? "text-green-700 dark:text-green-400" : ""}`}
+              >
+                {task.title}
+              </h3>
+              {isDone && <CheckCircle2 size={20} className="text-green-500" />}
+            </div>
+            <div className="flex gap-2">
+              <Chip
+                size="md"
+                variant="flat"
+                className={`${priorityColors[task.priority]} border-none`}
+              >
+                {task.priority}
+              </Chip>
+              <Chip
+                size="md"
+                variant={isDone ? "shadow" : "flat"}
+                color={isDone ? "success" : "default"}
+                className={
+                  isDone ? "" : `${statusColors[task.status]} border-none`
+                }
+              >
+                {task.status.replace("_", " ")}
+              </Chip>
+            </div>
           </div>
         </div>
-      </div>
 
-      <p className="text-gray-600 mb-6 text-sm line-clamp-3">
-        {task.description || "No description provided."}
-      </p>
+        <p
+          className={`text-sm line-clamp-3 mb-6 ${isDone ? "text-green-800/70 dark:text-green-200/60" : "text-default-500"}`}
+        >
+          {task.description || "No description provided."}
+        </p>
 
-      <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-50">
-        <span className="text-xs text-gray-400 font-medium">
-          {new Date(task.createdAt).toLocaleDateString()}
-        </span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onTaskClick(task.id)}
-            className="px-3 py-1.5 text-sm font-medium text-yellow-600 hover:yellow-blue-800 hover:bg-yellow-50 rounded-lg transition-colors"
-          >
-            Details
-          </button>
-          <button
-            onClick={() => onEdit(task)}
-            className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => onDelete(task.id)}
-            className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            Delete
-          </button>
+        <Divider className={`my-4 ${isDone ? "bg-green-500/20" : ""}`} />
+
+        <div className="flex justify-between items-end">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-default-400 font-medium">
+              Created: {new Date(task.createdAt).toLocaleDateString()}
+            </span>
+            <span
+              className={`text-[10px] font-medium ${isDone ? "text-green-600/60" : "text-default-400"}`}
+            >
+              Planned:{" "}
+              {task.plannedFor
+                ? new Date(task.plannedFor).toLocaleDateString()
+                : "No date"}
+            </span>
+            {isDone && (
+              <span className="text-[10px] text-green-600 font-bold flex items-center gap-1">
+                Completed: {new Date(task.completedAt!).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-1">
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              color={isDone ? "success" : "warning"}
+              onPress={() => onTaskClick(task.id)}
+            >
+              <Info size={18} />
+            </Button>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              color="primary"
+              onPress={() => onEdit(task)}
+            >
+              <Edit3 size={18} />
+            </Button>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              color="danger"
+              onPress={() => onDelete(task.id)}
+            >
+              <Trash2 size={18} />
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </CardBody>
+    </Card>
   );
 };

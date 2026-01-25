@@ -44,3 +44,14 @@ export const setSubtasks = async (
 ): Promise<void> => {
   await api.put<Task>(`/subtasks/${taskId}`, { subtasks: newSubtasks });
 };
+
+export const getMyDayTasks = async (): Promise<Task[]> => {
+  const response = await api.get<Task[]>("/my-day");
+  return response.data;
+};
+
+export const batchUpdateMyDay = async (
+  updates: { id: number; plannedFor: string | null }[],
+): Promise<void> => {
+  await api.patch("/my-day", { updates });
+};
