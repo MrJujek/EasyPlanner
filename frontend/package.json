@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/button": "^2.2.29",
     "@heroui/react": "^2.8.7",
+    "@internationalized/date": "3.10.1",
     "autoprefixer": "^10.4.18",
     "axios": "^1.13.2",
     "framer-motion": "^12.29.0",

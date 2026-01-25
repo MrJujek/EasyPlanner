@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Task,
-  priorityColors,
-  statusColors,
-  TaskStatus,
-} from "../types/task";
+import { Task, priorityColors, statusColors, TaskStatus } from "../types/task";
 import { getTasksNoParents } from "../api/taskApi";
 
 interface SubtaskFormProps {
@@ -27,23 +22,23 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
   useEffect(() => {
     const loadTasks = async () => {
       setIsLoading(true);
-  try {
-    const tasks = await getTasksNoParents();
-    
-    const filteredTasks = tasks.filter((t: Task) => {
-      const isNotInitialTask = t.id !== initialTaskId;
-      const hasNoSubtasks = !t.subtasks || t.subtasks.length === 0;
-      const isNotDone = t.status !== TaskStatus.DONE;
+      try {
+        const tasks = await getTasksNoParents();
 
-      return isNotInitialTask && hasNoSubtasks && isNotDone;
-    });
+        const filteredTasks = tasks.filter((t: Task) => {
+          const isNotInitialTask = t.id !== initialTaskId;
+          const hasNoSubtasks = !t.subtasks || t.subtasks.length === 0;
+          const isNotDone = t.status !== TaskStatus.DONE;
 
-    setAvailableTasks(filteredTasks);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setIsLoading(false);
-  }
+          return isNotInitialTask && hasNoSubtasks && isNotDone;
+        });
+
+        setAvailableTasks(filteredTasks);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     if (isOpen) {
@@ -55,7 +50,7 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
     setSelectedIds((prev) =>
       prev.includes(taskId)
         ? prev.filter((id) => id !== taskId)
-        : [...prev, taskId]
+        : [...prev, taskId],
     );
   };
 
