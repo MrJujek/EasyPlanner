@@ -47,6 +47,7 @@ export interface CreateTaskDto {
   status?: TaskStatus;
   priority?: TaskPriority;
   parentId?: number;
+  sharedWithId?: number;
 }
 
 export interface UpdateTaskDto {
@@ -54,4 +55,5 @@ export interface UpdateTaskDto {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  sharedWithId?: number;
 }

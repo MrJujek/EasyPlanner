@@ -12,8 +12,9 @@ import {
   Select,
   SelectItem,
 } from "@heroui/react";
-
 import { useAuth } from "../contexts/AuthContextType";
+import { getFriends } from "../api/friends";
+import { Friend } from "../types/friend";
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -35,8 +36,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>(TaskStatus.TODO);
   const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
+  const [sharedWithId, setSharedWithId] = useState<number | null>(null);
+  const [friends, setFriends] = useState<Friend[]>([]);
 
   const isOwner = !initialData || initialData.userId === user?.id;
+
+  useEffect(() => {
+    if (isOwner && isOpen) {
+      getFriends().then(setFriends).catch(console.error);
+    }
+  }, [isOwner, isOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -44,17 +53,26 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       setDescription(initialData.description);
       setStatus(initialData.status);
       setPriority(initialData.priority);
+      setSharedWithId(initialData.sharedWithId || null);
     } else {
       setTitle("");
       setDescription("");
       setStatus(TaskStatus.TODO);
       setPriority(TaskPriority.MEDIUM);
+      setSharedWithId(null);
     }
   }, [initialData, isOpen]);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    onSubmit({ title, description, status, priority, parentId });
+    onSubmit({
+      title,
+      description,
+      status,
+      priority,
+      parentId,
+      sharedWithId: sharedWithId || undefined
+    });
     onClose();
   };
 
@@ -87,6 +105,26 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                   variant="bordered"
                   isDisabled={!isOwner}
                 />
+
+                {isOwner && (
+                  <Select
+                    label="Shared With"
+                    placeholder="Select a friend"
+                    selectedKeys={sharedWithId ? [sharedWithId.toString()] : []}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSharedWithId(val ? Number(val) : null);
+                    }}
+                    variant="bordered"
+                    disallowEmptySelection={false}
+                  >
+                    {friends.map((friend) => (
+                      <SelectItem key={friend.id} textValue={friend.username}>
+                        {friend.username} ({friend.email})
+                      </SelectItem>
+                    ))}
+                  </Select>
+                )}
 
                 <div className="flex gap-4">
                   <Select

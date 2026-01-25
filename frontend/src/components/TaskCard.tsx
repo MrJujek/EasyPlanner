@@ -45,38 +45,37 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div className="flex justify-between items-start mb-4">
             <div className="w-full">
               <div className="flex justify-between items-start w-full">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
                   <h3
                     className={`text-xl font-bold ${isDone ? "text-green-700 dark:text-green-400" : ""}`}
                   >
                     {task.title}
                   </h3>
                   {isDone && <CheckCircle2 size={20} className="text-green-500" />}
-                </div>
 
-                {/* Shared Badges */}
-                {isOwner && task.sharedWith && (
-                  <Chip
-                    startContent={<Share2 size={12} />}
-                    size="sm"
-                    variant="flat"
-                    color="secondary"
-                    className="mb-2"
-                  >
-                    Shared with {task.sharedWith.username}
-                  </Chip>
-                )}
-                {!isOwner && (
-                  <Chip
-                    startContent={<UserIcon size={12} />}
-                    size="sm"
-                    variant="flat"
-                    color="warning"
-                    className="mb-2"
-                  >
-                    Shared by {task.user?.username || "Owner"}
-                  </Chip>
-                )}
+                  {isOwner && task.sharedWith && (
+                    <Chip
+                      startContent={<Share2 size={12} />}
+                      size="sm"
+                      variant="flat"
+                      color="secondary"
+                      className="ml-2"
+                    >
+                      Shared with {task.sharedWith.username}
+                    </Chip>
+                  )}
+                  {!isOwner && (
+                    <Chip
+                      startContent={<UserIcon size={12} />}
+                      size="sm"
+                      variant="flat"
+                      color="warning"
+                      className="ml-2"
+                    >
+                      Shared by {task.user?.username || "Owner"}
+                    </Chip>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-2">
