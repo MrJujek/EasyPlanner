@@ -11,10 +11,12 @@ export const ProtectedRoute = () => {
   }
 
   return (
-    <div className="pb-20 min-h-screen bg-gray-50">
-      <Header username={user?.username || "User"} logout={logout} />
-      <Outlet />
+    <>
+      <div className="pb-20 h-full overflow-y-auto bg-gray-50 overflow-x-hidden">
+        <Header username={user?.username || "User"} logout={logout} />
+        <Outlet />
+      </div>
       <BottomNavbar />
-    </div>
+    </>
   );
 };

@@ -14,7 +14,7 @@ import { MyDay } from "./pages/my-day/MyDay";
 function App() {
   return (
     <AuthProvider>
-      <HeroUIProvider>
+      <HeroUIProvider className="h-full">
         <BrowserRouter>
           <Routes>
             <Route path="/register" element={<Register />} />
