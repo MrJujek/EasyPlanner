@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Task, TaskPriority, TaskStatus, CreateTaskDto } from "../types/task";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  SelectItem,
+} from "@heroui/react";
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -35,100 +47,82 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     }
   }, [initialData, isOpen]);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSubmit({ title, description, status, priority, parentId });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md transform scale-100 transition-transform">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          {initialData ? "Edit Task" : "New Task"}
-        </h2>
+    <Modal isOpen={isOpen} onClose={onClose} placement="center">
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader className="flex flex-col gap-1">
+              {initialData ? "Edit Task" : "New Task"}
+            </ModalHeader>
+            <ModalBody>
+              <form id="task-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <Input
+                  label="Title"
+                  placeholder="Enter task title"
+                  value={title}
+                  onValueChange={setTitle}
+                  isRequired
+                  variant="bordered"
+                />
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="Enter task title"
-            />
-          </div>
+                <Textarea
+                  label="Description"
+                  placeholder="Enter task details"
+                  value={description}
+                  onValueChange={setDescription}
+                  minRows={3}
+                  variant="bordered"
+                />
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none h-24"
-              placeholder="Enter task details"
-            />
-          </div>
+                <div className="flex gap-4">
+                  <Select
+                    label="Priority"
+                    selectedKeys={[priority]}
+                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                    className="w-full"
+                    variant="bordered"
+                  >
+                    {Object.values(TaskPriority).map((p) => (
+                      <SelectItem key={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </Select>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Priority
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              >
-                {Object.values(TaskPriority).map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              >
-                {Object.values(TaskStatus).map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace("_", " ")}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-8">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all"
-            >
-              {initialData ? "Save Changes" : "Create Task"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+                  <Select
+                    label="Status"
+                    selectedKeys={[status]}
+                    onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                    className="w-full"
+                    variant="bordered"
+                  >
+                    {Object.values(TaskStatus).map((s) => (
+                      <SelectItem key={s}>
+                        {s.replace("_", " ")}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              </form>
+            </ModalBody>
+            <ModalFooter>
+              <Button color="danger" variant="light" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button color="primary" type="submit" form="task-form">
+                {initialData ? "Save Changes" : "Create Task"}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 };
