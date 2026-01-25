@@ -1,3 +1,5 @@
+import { User } from "./user";
+
 export enum TaskStatus {
   TODO = "TODO",
   IN_PROGRESS = "IN_PROGRESS",
@@ -29,6 +31,9 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   userId: number;
+  user?: User;
+  sharedWithId?: number | null;
+  sharedWith?: User;
   createdAt: string;
   plannedFor: string;
   completedAt: string | null;

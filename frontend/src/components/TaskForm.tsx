@@ -13,6 +13,8 @@ import {
   SelectItem,
 } from "@heroui/react";
 
+import { useAuth } from "../contexts/AuthContextType";
+
 interface TaskFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,10 +30,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   initialData,
   parentId,
 }) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>(TaskStatus.TODO);
   const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
+
+  const isOwner = !initialData || initialData.userId === user?.id;
 
   useEffect(() => {
     if (initialData) {
@@ -59,7 +64,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              {initialData ? "Edit Task" : "New Task"}
+              {initialData ? (isOwner ? "Edit Task" : "Update Task Status") : "New Task"}
             </ModalHeader>
             <ModalBody>
               <form id="task-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -70,6 +75,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                   onValueChange={setTitle}
                   isRequired
                   variant="bordered"
+                  isDisabled={!isOwner}
                 />
 
                 <Textarea
@@ -79,6 +85,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                   onValueChange={setDescription}
                   minRows={3}
                   variant="bordered"
+                  isDisabled={!isOwner}
                 />
 
                 <div className="flex gap-4">
@@ -88,6 +95,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     onChange={(e) => setPriority(e.target.value as TaskPriority)}
                     className="w-full"
                     variant="bordered"
+                    isDisabled={!isOwner}
                   >
                     {Object.values(TaskPriority).map((p) => (
                       <SelectItem key={p}>

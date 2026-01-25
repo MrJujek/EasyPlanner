@@ -55,3 +55,13 @@ export const batchUpdateMyDay = async (
 ): Promise<void> => {
   await api.patch("/my-day", { updates });
 };
+
+export const shareTask = async (
+  taskId: number,
+  sharedWithId: number,
+): Promise<Task> => {
+  const response = await api.patch<Task>(`/tasks/${taskId}/share`, {
+    sharedWithId,
+  });
+  return response.data;
+};
