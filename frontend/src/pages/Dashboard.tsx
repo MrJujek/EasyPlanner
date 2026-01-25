@@ -15,6 +15,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { SearchBar } from "../components/SearchBar";
 import { FilterSelect } from "../components/FilterSelect";
 import { Header } from "../components/Header";
+import { CirclePlus } from "lucide-react";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -106,7 +107,7 @@ export const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header username={user?.username || "User"} logout={logout}/>
+      <Header username={user?.username || "User"} logout={logout} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
@@ -141,7 +142,7 @@ export const Dashboard = () => {
               onClick={openCreateModal}
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2"
             >
-              <span>+</span> New Task
+              <CirclePlus className="w-5 h-5" /> New Task
             </button>
           </div>
         </div>

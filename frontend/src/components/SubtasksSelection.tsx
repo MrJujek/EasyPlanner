@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Task, priorityColors, statusColors, TaskStatus } from "../types/task";
 import { getTasksNoParents } from "../api/taskApi";
+import { X } from "lucide-react";
 
 interface SubtaskFormProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              ✕
+              <X />
             </button>
           </div>
 

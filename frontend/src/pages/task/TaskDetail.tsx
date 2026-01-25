@@ -17,6 +17,7 @@ import {
 } from "../../api/taskApi";
 import { SubtaskSelection } from "../../components/SubtasksSelection";
 import { TaskForm } from "../../components/TaskForm";
+import { ArrowBigLeft, ArrowUpFromLine, CirclePlus } from "lucide-react";
 
 export const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -92,7 +93,7 @@ export const TaskDetail: React.FC = () => {
     const currentSubtasksIds =
       task.subtasks?.map((subtask) => subtask.id) || [];
     const allSubtasksIds = Array.from(
-      new Set([...currentSubtasksIds, ...newSubtasksIds])
+      new Set([...currentSubtasksIds, ...newSubtasksIds]),
     );
 
     try {
@@ -153,14 +154,14 @@ export const TaskDetail: React.FC = () => {
 
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter(
-    (s) => s.status === TaskStatus.DONE
+    (s) => s.status === TaskStatus.DONE,
   ).length;
   const progress =
     subtasks.length > 0
       ? Math.round((completedSubtasks / subtasks.length) * 100)
       : task.status == TaskStatus.DONE
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -170,7 +171,8 @@ export const TaskDetail: React.FC = () => {
             onClick={() => navigate("/")}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-medium text-sm"
           >
-            ← Back to Dashboard
+            <ArrowBigLeft />
+            Back to Dashboard
           </button>
           <div className="flex gap-2">
             <button
@@ -295,13 +297,17 @@ export const TaskDetail: React.FC = () => {
                         className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
                         onClick={openSubtaskModal}
                       >
-                        ↑ Add subtask
+                        <div className="flex items-center justify-center gap-2">
+                          <ArrowUpFromLine /> Add subtask
+                        </div>
                       </button>
                       <button
                         className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
                         onClick={openCreateModal}
                       >
-                        + Create new subtask
+                        <div className="flex items-center justify-center gap-2">
+                          <CirclePlus /> Create new subtask
+                        </div>
                       </button>
                     </div>
                   </div>
