@@ -34,25 +34,29 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     addMode ? "today" : "schedule",
   );
 
+  const currentTodayStr = useMemo(
+    () => today(getLocalTimeZone()).toString(),
+    [],
+  );
+
   const loadAllTasks = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [resToday, resSchedule] = await Promise.all([
+      const [resAllTasks, resMyDay] = await Promise.all([
         getTasks(),
         getMyDayTasks(),
       ]);
 
-      const filterDone = (tasks: Task[]) =>
+      const filterNotDone = (tasks: Task[]) =>
         tasks.filter((t) => t.status !== TaskStatus.DONE);
 
-      const filteredToday = filterDone(resToday);
-      const filteredSchedule = filterDone(resSchedule);
+      const allNotDone = filterNotDone(resAllTasks);
+      const myDayNotDone = filterNotDone(resMyDay);
 
-      setTodayTasks(filteredToday);
-      setScheduleTasks(filteredSchedule);
+      setTodayTasks(allNotDone);
+      setScheduleTasks(myDayNotDone);
 
-      const combined = [...filteredToday, ...filteredSchedule];
-      const prefilled: [number, string | null][] = combined
+      const prefilled: [number, string | null][] = allNotDone
         .filter((t) => t.plannedFor)
         .map((t) => [t.id, t.plannedFor]);
 
@@ -87,21 +91,23 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       const existingPair = prev.find(([id]) => id === toggledId);
 
       if (existingPair) {
-        return existingPair[1] === null
-          ? prev.filter(([id]) => id !== toggledId)
-          : prev.map((pair) =>
-              pair[0] === toggledId ? [toggledId, null] : pair,
-            );
+        if (existingPair[1] === currentTodayStr) {
+          return prev.map((pair) =>
+            pair[0] === toggledId ? [toggledId, null] : pair,
+          );
+        } else {
+          return prev.map((pair) =>
+            pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
+          );
+        }
       } else {
-        const dateStr = today(getLocalTimeZone()).toString();
-        return [...prev, [toggledId, dateStr]];
+        return [...prev, [toggledId, currentTodayStr]];
       }
     });
   };
 
   const updateTaskDate = (toggledId: number, dateValue: DateValue | null) => {
     const dateStr = dateValue ? dateValue.toString() : null;
-
     setIdsToDate((prev) => {
       const exists = prev.some(([id]) => id === toggledId);
       if (exists) {
@@ -119,7 +125,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       await onSubmit(idsToDate);
       onClose();
     } catch (error) {
-      console.error("Failed to update tasks:", error);
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -128,9 +134,6 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
   if (!isOpen) return null;
 
   const currentTasks = mode === "today" ? todayTasks : scheduleTasks;
-  const selectedIds = idsToDate
-    .filter(([, date]) => date !== null)
-    .map(([id]) => id);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -181,103 +184,97 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {currentTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                    selectedIds.includes(task.id)
-                      ? "border-blue-200 bg-blue-50/30"
-                      : "border-gray-100 hover:border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-12 flex-shrink-0 flex justify-center">
-                      {mode === "today" ? (
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          checked={selectedIds.includes(task.id)}
-                          onChange={() => toggleTask(task.id)}
-                        />
-                      ) : (
-                        <div className="relative flex items-center justify-center">
-                          <DatePicker
-                            aria-label="Pick date"
-                            variant="bordered"
-                            minValue={today(getLocalTimeZone())}
-                            popoverProps={{
-                              className:
-                                "bg-white shadow-xl rounded-xl border border-gray-200",
-                              backdrop: "transparent",
-                            }}
-                            value={
-                              idsToDate.find(([id]) => id === task.id)?.[1]
-                                ? parseDate(
-                                    idsToDate.find(
-                                      ([id]) => id === task.id,
-                                    )![1] as string,
-                                  )
-                                : null
-                            }
-                            onChange={(date) => updateTaskDate(task.id, date)}
-                            className="w-10"
-                            classNames={{
-                              inputWrapper: "bg-white px-0 justify-center",
-                              input: "hidden",
-                            }}
-                            showMonthAndYearPickers
-                            selectorIcon={
-                              <CalendarIcon
-                                className={`w-5 h-5 ${selectedIds.includes(task.id) ? "text-purple-600" : "text-gray-400"}`}
-                              />
-                            }
-                          />
-                          {idsToDate.find(([id]) => id === task.id)?.[1] && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateTaskDate(task.id, null);
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
-                            >
-                              <X className="w-2 h-2" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <span className="font-medium text-gray-700 truncate">
-                      {task.title}
-                    </span>
-                  </div>
+              {currentTasks.map((task) => {
+                const taskDateEntry = idsToDate.find(([id]) => id === task.id);
+                const isChecked =
+                  taskDateEntry && taskDateEntry[1] === currentTodayStr;
 
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusColors[task.status]}`}
-                    >
-                      {task.status}
-                    </span>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${priorityColors[task.priority]}`}
-                    >
-                      {task.priority}
-                    </span>
-                    {idsToDate.some(([id]) => id === task.id) &&
-                      mode === "schedule" && (
-                        <span
-                          className={`hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                            idsToDate.find((item) => item[0] === task.id)?.[1]
-                              ? "bg-indigo-100 text-indigo-700"
-                              : "bg-amber-100 text-amber-700 border border-amber-200"
-                          }`}
-                        >
-                          {idsToDate.find((item) => item[0] === task.id)?.[1] ||
-                            "No date"}
+                return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                      isChecked
+                        ? "border-blue-200 bg-blue-50/30"
+                        : "border-gray-100 hover:border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="w-12 flex-shrink-0 flex justify-center">
+                        {mode === "today" ? (
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            checked={!!isChecked}
+                            onChange={() => toggleTask(task.id)}
+                          />
+                        ) : (
+                          <div className="relative flex items-center justify-center">
+                            <DatePicker
+                              aria-label="Pick date"
+                              variant="bordered"
+                              minValue={today(getLocalTimeZone())}
+                              popoverProps={{
+                                className:
+                                  "bg-white shadow-xl rounded-xl border border-gray-200",
+                                backdrop: "transparent",
+                              }}
+                              value={
+                                taskDateEntry?.[1]
+                                  ? parseDate(taskDateEntry[1] as string)
+                                  : null
+                              }
+                              onChange={(date) => updateTaskDate(task.id, date)}
+                              className="w-10"
+                              classNames={{
+                                inputWrapper: "bg-white px-0 justify-center",
+                                input: "hidden",
+                              }}
+                              showMonthAndYearPickers
+                              selectorIcon={
+                                <CalendarIcon
+                                  className={`w-5 h-5 ${taskDateEntry?.[1] ? "text-purple-600" : "text-gray-400"}`}
+                                />
+                              }
+                            />
+                            {taskDateEntry?.[1] && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateTaskDate(task.id, null);
+                                }}
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
+                              >
+                                <X className="w-2 h-2" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium text-gray-700 truncate">
+                        {task.title}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusColors[task.status]}`}
+                      >
+                        {task.status}
+                      </span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${priorityColors[task.priority]}`}
+                      >
+                        {task.priority}
+                      </span>
+                      {taskDateEntry?.[1] && mode === "schedule" && (
+                        <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700">
+                          {taskDateEntry[1]}
                         </span>
                       )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
