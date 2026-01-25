@@ -8,9 +8,11 @@ const taskRepository = AppDataSource.getRepository(Task);
 
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, status, priority, parentId } = req.body;
+    const { title, description, status, priority, parentId, assigneeId } =
+      req.body;
     const userId = req.user?.userId;
     const parentTaskId = parentId ? Number(parentId) : null;
+    const taskAssigneeId = assigneeId ? Number(assigneeId) : null;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -21,6 +23,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       priority,
       userId,
       parentId: parentTaskId,
+      assigneeId: taskAssigneeId,
     });
 
     await taskRepository.save(task);
@@ -38,29 +41,34 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 
     const { search, status, priority } = req.params;
 
-    const where: FindOptionsWhere<Task> = { userId };
+    const baseWhere: FindOptionsWhere<Task>[] = [
+      { userId },
+      { assigneeId: userId },
+    ];
 
-    if (status) {
-      where.status = status as TaskStatus;
-    }
+    const where: FindOptionsWhere<Task>[] = baseWhere.map((w) => {
+      const condition = { ...w };
+      if (status) condition.status = status as TaskStatus;
+      if (priority) condition.priority = priority as TaskPriority;
+      return condition;
+    });
 
-    if (priority) {
-      where.priority = priority as TaskPriority;
-    }
+    let finalWhere: FindOptionsWhere<Task>[] = where;
 
     if (search) {
-      where.title = Like(`%${search}`);
+      finalWhere = [];
+      where.forEach((w) => {
+        finalWhere.push(
+          { ...w, title: Like(`%${search}%`) },
+          { ...w, description: Like(`%${search}%`) },
+        );
+      });
     }
 
     const tasks = await taskRepository.find({
-      where: search
-        ? [
-            { ...where, title: Like(`${search}`) },
-            { ...where, description: Like(`${search}`) },
-          ]
-        : where,
+      where: finalWhere,
       order: { createdAt: "DESC" },
-      relations: ["subtasks"],
+      relations: ["subtasks", "assignee", "user"],
     });
     res.json(tasks);
   } catch (error) {
@@ -75,14 +83,17 @@ export const getCompletedTasks = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const tasks = await taskRepository.find({
-      where: {
-        userId,
-        status: TaskStatus.DONE,
-      },
+      where: [
+        {
+          userId,
+          status: TaskStatus.DONE,
+        },
+        { assigneeId: userId, status: TaskStatus.DONE },
+      ],
       order: {
         completedAt: "DESC",
       },
-      relations: ["subtasks"],
+      relations: ["subtasks", "assignee", "user"],
     });
 
     res.json(tasks);
@@ -98,12 +109,15 @@ export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const tasks = await taskRepository.find({
-      where: {
-        userId,
-        parentId: IsNull(),
-      },
+      where: [
+        {
+          userId,
+          parentId: IsNull(),
+        },
+        { assigneeId: userId, parentId: IsNull() },
+      ],
       order: { createdAt: "DESC" },
-      relations: ["subtasks"],
+      relations: ["subtasks", "assignee", "user"],
     });
     res.json(tasks);
   } catch (error) {
@@ -119,12 +133,15 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const task = await taskRepository.findOne({
-      where: {
-        userId,
-        id: Number(id),
-      },
+      where: [
+        {
+          userId,
+          id: Number(id),
+        },
+        { assigneeId: userId, id: Number(id) },
+      ],
       order: { createdAt: "DESC" },
-      relations: ["subtasks"],
+      relations: ["subtasks", "assignee", "user"],
     });
 
     if (!task) {
@@ -142,7 +159,8 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     if (!id) return res.status(400).json({ message: "ID is required" });
-    const { title, description, priority, status, plannedFor } = req.body;
+    const { title, description, priority, status, plannedFor, assigneeId } =
+      req.body;
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -154,6 +172,9 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
     if (priority !== undefined) task.priority = priority;
+    if (assigneeId !== undefined) {
+      task.assigneeId = assigneeId === null ? undefined : assigneeId;
+    }
 
     if (status !== undefined && status !== task.status) {
       if (status === TaskStatus.DONE) {
@@ -277,10 +298,14 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
     const today = new Date().toISOString().split("T")[0];
 
     const tasks = await taskRepository.find({
-      where: {
-        userId,
-        plannedFor: today as any
-      },
+      where: [
+        {
+          userId,
+          plannedFor: today as any,
+        },
+        { assigneeId: userId, plannedFor: today as any },
+      ],
+      relations: ["subtasks", "assignee", "user"],
       order: { priority: "DESC" },
     });
 
@@ -290,18 +315,23 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const batchUpdatePlannedDate = async (req: AuthRequest, res: Response) => {
+export const batchUpdatePlannedDate = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
-    const { updates } = req.body as { updates: { id: number; plannedFor: string | null }[] };
+    const { updates } = req.body as {
+      updates: { id: number; plannedFor: string | null }[];
+    };
     const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const updatePromises = updates.map((item) =>
       taskRepository.update(
-        { id: item.id, userId }, 
-        { plannedFor: item.plannedFor }
-      )
+        { id: item.id, userId },
+        { plannedFor: item.plannedFor },
+      ),
     );
 
     await Promise.all(updatePromises);
