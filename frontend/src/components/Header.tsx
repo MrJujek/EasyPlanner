@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LogOut, LayoutDashboard, History, Sun } from "lucide-react";
+import { LogOut, LayoutDashboard, History, Sun, Users } from "lucide-react";
 import { Button } from "@heroui/react";
 
 interface HeaderProps {
@@ -39,6 +39,10 @@ export const Header: React.FC<HeaderProps> = ({ username, logout }) => {
           <Link to="/my-day" className={navLinkClass("/my-day")}>
             <Sun size={18} />
             My Day
+          </Link>
+          <Link to="/friends" className={navLinkClass("/friends")}>
+            <Users size={18} />
+            Friends
           </Link>
           <Link to="/history" className={navLinkClass("/history")}>
             <History size={18} />
