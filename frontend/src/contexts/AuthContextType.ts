@@ -1,28 +1,29 @@
 import { createContext, useContext } from "react";
 
 export interface User {
-    username: string;
-    email: string;
+  id: number;
+  username: string;
+  email: string;
 }
 
 export interface AuthContextType {
-    token: string | null;
-    user: User | null;
-    login: (email: string, password: string) => Promise<void>;
-    register: (
-        username: string,
-        email: string,
-        password: string
-    ) => Promise<void>;
-    logout: () => Promise<void>;
+  token: string | null;
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (
+    username: string,
+    email: string,
+    password: string,
+  ) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
-    undefined
+  undefined,
 );
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error("useAuth must be used within AuthProvider");
-    return context;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
 };
