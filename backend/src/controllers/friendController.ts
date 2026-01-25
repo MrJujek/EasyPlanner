@@ -131,3 +131,85 @@ export const getPendingRequests = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
+export const getSentRequests = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.sendStatus(401);
+  }
+
+  try {
+    const sentRequests = await friendshipRepository.find({
+      where: { requesterId: userId, status: FriendshipStatus.PENDING },
+      relations: ["recipient"],
+    });
+
+    res.json(sentRequests);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const cancelFriendRequest = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  const { id } = req.params;
+
+  if (!userId) return res.sendStatus(401);
+
+  try {
+    const friendship = await friendshipRepository.findOne({
+      where: { id: Number(id) },
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    if (
+      friendship.requesterId !== userId &&
+      friendship.recipientId !== userId
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    await friendshipRepository.remove(friendship);
+    res.json({ message: "Request cancelled/rejected" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const removeFriend = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  const { friendId } = req.params;
+
+  if (!userId) return res.sendStatus(401);
+
+  try {
+    const friendIdNum = Number(friendId);
+
+    const friendship = await friendshipRepository.findOne({
+      where: [
+        {
+          requesterId: userId,
+          recipientId: friendIdNum,
+          status: FriendshipStatus.ACCEPTED,
+        },
+        {
+          requesterId: friendIdNum,
+          recipientId: userId,
+          status: FriendshipStatus.ACCEPTED,
+        },
+      ],
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: "Friendship not found" });
+    }
+
+    await friendshipRepository.remove(friendship);
+    res.json({ message: "Friend removed" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+};

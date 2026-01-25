@@ -5,6 +5,9 @@ import {
   acceptFriendRequest,
   getFriendsList,
   getPendingRequests,
+  getSentRequests,
+  cancelFriendRequest,
+  removeFriend,
 } from "../controllers/friendController";
 
 const router = Router();
@@ -17,6 +20,10 @@ router.post(
 );
 
 router.get("/friends/requests", authenticateToken, getPendingRequests);
+router.get("/friends/requests/sent", authenticateToken, getSentRequests);
 router.get("/friends", authenticateToken, getFriendsList);
+
+router.delete("/friends/requests/:id", authenticateToken, cancelFriendRequest);
+router.delete("/friends/:friendId", authenticateToken, removeFriend);
 
 export default router;
