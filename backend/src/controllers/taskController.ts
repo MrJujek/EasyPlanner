@@ -388,7 +388,9 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
-    const today = new Date().toISOString().split("T")[0];
+
+    const dateParam = req.query.date as string;
+    const today = dateParam || new Date().toISOString().split("T")[0];
 
     const tasks = await taskRepository.find({
       where: [
