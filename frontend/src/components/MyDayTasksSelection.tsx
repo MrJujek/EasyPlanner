@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Task, priorityColors, statusColors, TaskStatus } from "../types/task";
+import { Task, statusColors, TaskStatus } from "../types/task";
 import { getMyDayTasks, getTasks } from "../api/taskApi";
 import { CalendarDays, Sun, X, Calendar as CalendarIcon } from "lucide-react";
 import {
@@ -30,8 +30,8 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
   onSubmit,
   addMode,
 }) => {
-  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [scheduleTasks, setScheduleTasks] = useState<Task[]>([]);
+  const [todayModeTasks, setTodayModeTasks] = useState<Task[]>([]);
+  const [scheduleModeTasks, setScheduleModeTasks] = useState<Task[]>([]);
   const [idsToDate, setIdsToDate] = useState<[number, string | null][]>([]);
   const [initialData, setInitialData] = useState<string>("[]");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -43,6 +43,15 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     () => today(getLocalTimeZone()).toString(),
     [],
   );
+
+  const safeParseDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null;
+    try {
+      return parseDate(dateStr.split("T")[0]);
+    } catch (e) {
+      return null;
+    }
+  };
 
   const loadAllTasks = useCallback(async () => {
     setIsLoading(true);
@@ -58,11 +67,14 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       const allNotDone = filterNotDone(resAllTasks);
       const myDayNotDone = filterNotDone(resMyDay);
 
-      setTodayTasks(allNotDone);
-      setScheduleTasks(myDayNotDone);
+      setTodayModeTasks(
+        allNotDone.filter((t) => t.plannedFor !== currentTodayStr),
+      );
+
+      setScheduleModeTasks(myDayNotDone);
 
       const prefilled: [number, string | null][] = allNotDone
-        .filter((t) => t.plannedFor)
+        .filter((t) => t.plannedFor !== null)
         .map((t) => [t.id, t.plannedFor]);
 
       const sortedData = [...prefilled].sort((a, b) => a[0] - b[0]);
@@ -94,20 +106,17 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
   const toggleTask = (toggledId: number) => {
     setIdsToDate((prev) => {
       const existingPair = prev.find(([id]) => id === toggledId);
-
-      if (existingPair) {
-        if (existingPair[1] === currentTodayStr) {
-          return prev.map((pair) =>
-            pair[0] === toggledId ? [toggledId, null] : pair,
-          );
-        } else {
-          return prev.map((pair) =>
-            pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
-          );
-        }
-      } else {
-        return [...prev, [toggledId, currentTodayStr]];
+      if (existingPair && existingPair[1] === currentTodayStr) {
+        return prev.map((pair) =>
+          pair[0] === toggledId ? [toggledId, null] : pair,
+        );
       }
+      if (existingPair) {
+        return prev.map((pair) =>
+          pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
+        );
+      }
+      return [...prev, [toggledId, currentTodayStr]];
     });
   };
 
@@ -136,7 +145,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     }
   };
 
-  const currentTasks = mode === "today" ? todayTasks : scheduleTasks;
+  const currentTasks = mode === "today" ? todayModeTasks : scheduleModeTasks;
 
   return (
     <Modal
@@ -175,8 +184,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
                     }}
                     variant="light"
                   >
-                    <CalendarDays className="w-4 h-4 mr-2" /> Plan for another
-                    date
+                    <CalendarDays className="w-4 h-4 mr-2" /> Manage scheduled
                   </Button>
                 </div>
               </div>
@@ -187,65 +195,64 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 p-4">
-                  {currentTasks.map((task) => {
-                    const taskDateEntry = idsToDate.find(([id]) => id === task.id);
-                    const isChecked = taskDateEntry && taskDateEntry[1] === currentTodayStr;
+                  {currentTasks.length === 0 ? (
+                    <p className="text-center text-default-400 py-8">
+                      No tasks found for this mode.
+                    </p>
+                  ) : (
+                    currentTasks.map((task) => {
+                      const taskDateEntry = idsToDate.find(
+                        ([id]) => id === task.id,
+                      );
+                      const taskDate = taskDateEntry?.[1];
+                      const isChecked = taskDate === currentTodayStr;
 
-                    return (
-                      <div
-                        key={task.id}
-                        className={`flex items-center justify-between p-3 rounded-medium border transition-all cursor-pointer hover:bg-default-50 ${isChecked
-                          ? "border-primary bg-primary-50/50"
-                          : "border-default-200"
+                      return (
+                        <div
+                          key={task.id}
+                          className={`flex items-center justify-between p-3 rounded-medium border transition-all cursor-pointer hover:bg-default-50 ${
+                            isChecked
+                              ? "border-primary bg-primary-50/50"
+                              : "border-default-200"
                           }`}
-                        onClick={(e) => {
-                          if (
-                            (e.target as HTMLElement).closest(
-                              ".datepicker-container",
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest(
+                                ".datepicker-container",
+                              )
                             )
-                          )
-                            return;
-                          if (mode === "today") toggleTask(task.id);
-                        }}
-                      >
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <div className="w-12 shrink-0 flex justify-center">
-                            {mode === "today" ? (
-                              <Checkbox
-                                isSelected={!!isChecked}
-                                onValueChange={() => toggleTask(task.id)}
-                              />
-                            ) : (
-                              <div className="relative flex items-center justify-center datepicker-container">
-                                <DatePicker
-                                  aria-label="Pick date"
-                                  variant="bordered"
-                                  minValue={today(getLocalTimeZone())}
-                                  value={
-                                    idsToDate.find(([id]) => id === task.id)?.[1]
-                                      ? parseDate(
-                                        idsToDate.find(
-                                          ([id]) => id === task.id,
-                                        )![1] as string,
-                                      )
-                                      : null
-                                  }
-                                  onChange={(date) =>
-                                    updateTaskDate(task.id, date)
-                                  }
-                                  className="w-[40px] **:data-[slot=input-wrapper]:px-0 **:data-[slot=input-wrapper]:border-none **:data-[slot=input-wrapper]:bg-transparent"
-                                  showMonthAndYearPickers
-                                  selectorIcon={
-                                    <div className="flex items-center justify-center w-full h-full">
-                                      <CalendarIcon
-                                        className={`w-5 h-5 ${isChecked ? "text-secondary" : "text-default-400"}`}
-                                      />
-                                    </div>
-                                  }
+                              return;
+                            if (mode === "today") toggleTask(task.id);
+                          }}
+                        >
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className="w-12 shrink-0 flex justify-center">
+                              {mode === "today" ? (
+                                <Checkbox
+                                  isSelected={isChecked}
+                                  onValueChange={() => toggleTask(task.id)}
                                 />
-                                {idsToDate.find(
-                                  ([id]) => id === task.id,
-                                )?.[1] && (
+                              ) : (
+                                <div className="relative flex items-center justify-center datepicker-container">
+                                  <DatePicker
+                                    aria-label="Pick date"
+                                    variant="bordered"
+                                    minValue={today(getLocalTimeZone())}
+                                    value={safeParseDate(taskDate)}
+                                    onChange={(date) =>
+                                      updateTaskDate(task.id, date)
+                                    }
+                                    className="w-[40px] **:data-[slot=input-wrapper]:px-0 **:data-[slot=input-wrapper]:border-none **:data-[slot=input-wrapper]:bg-transparent"
+                                    showMonthAndYearPickers
+                                    selectorIcon={
+                                      <div className="flex items-center justify-center w-full h-full">
+                                        <CalendarIcon
+                                          className={`w-5 h-5 ${taskDate ? "text-secondary" : "text-default-400"}`}
+                                        />
+                                      </div>
+                                    }
+                                  />
+                                  {taskDate && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -256,52 +263,43 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
                                       <X className="w-2 h-2" />
                                     </button>
                                   )}
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground truncate select-none">
+                              {task.title}
+                            </span>
                           </div>
-                          <span className="font-medium text-foreground truncate select-none">
-                            {task.title}
-                          </span>
-                        </div>
 
-                        <div className="flex items-center gap-2 shrink-0 ml-4">
-                          <Chip
-                            size="sm"
-                            variant="flat"
-                            className={statusColors[task.status]}
-                          >
-                            {task.status.replace("_", " ")}
-                          </Chip>
-                          <Chip
-                            size="sm"
-                            variant="flat"
-                            className={priorityColors[task.priority]}
-                          >
-                            {task.priority}
-                          </Chip>
-                          {idsToDate.some(([id]) => id === task.id) &&
-                            mode === "schedule" && (
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <Chip
+                              size="sm"
+                              variant="flat"
+                              className={statusColors[task.status]}
+                            >
+                              {task.status.replace("_", " ")}
+                            </Chip>
+                            {taskDate && (
                               <Chip
                                 size="sm"
                                 variant="flat"
                                 color={
-                                  idsToDate.find(
-                                    (item) => item[0] === task.id,
-                                  )?.[1]
-                                    ? "secondary"
-                                    : "warning"
+                                  taskDate === currentTodayStr
+                                    ? "primary"
+                                    : "secondary"
                                 }
                                 className="hidden sm:flex"
                               >
-                                {idsToDate.find(
-                                  (item) => item[0] === task.id,
-                                )?.[1] || "No date"}
+                                {taskDate === currentTodayStr
+                                  ? "Today"
+                                  : taskDate}
                               </Chip>
                             )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
             </ModalBody>
@@ -315,7 +313,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
                 isDisabled={!hasChanges || isLoading}
                 isLoading={isLoading}
               >
-                Confirm
+                Confirm Changes
               </Button>
             </ModalFooter>
           </>
