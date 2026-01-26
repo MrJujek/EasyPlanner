@@ -49,7 +49,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     try {
       const [resAllTasks, resMyDay] = await Promise.all([
         getTasks(),
-        getMyDayTasks(),
+        getMyDayTasks(currentTodayStr),
       ]);
 
       const filterNotDone = (tasks: Task[]) =>
@@ -73,7 +73,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentTodayStr]);
 
   useEffect(() => {
     if (isOpen) {

@@ -45,8 +45,9 @@ export const setSubtasks = async (
   await api.put<Task>(`/subtasks/${taskId}`, { subtasks: newSubtasks });
 };
 
-export const getMyDayTasks = async (): Promise<Task[]> => {
-  const response = await api.get<Task[]>("/my-day");
+export const getMyDayTasks = async (date?: string): Promise<Task[]> => {
+  const url = date ? `/my-day?date=${date}` : "/my-day";
+  const response = await api.get<Task[]>(url);
   return response.data;
 };
 

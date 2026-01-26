@@ -16,6 +16,7 @@ import { FilterSelect } from "../../components/FilterSelect";
 import { Spinner, Button } from "@heroui/react";
 import { CalendarPlus, CalendarClock, CheckCircle } from "lucide-react";
 import { MyDayTasksSelection } from "../../components/MyDayTasksSelection";
+import { today, getLocalTimeZone } from "@internationalized/date";
 
 export const MyDay: React.FC = () => {
   const navigate = useNavigate();
@@ -45,7 +46,8 @@ export const MyDay: React.FC = () => {
 
   const fetchTasks = async () => {
     try {
-      const data = await getMyDayTasks();
+      const localToday = today(getLocalTimeZone()).toString();
+      const data = await getMyDayTasks(localToday);
       setTasks(data);
     } catch (error) {
       console.error(error);
