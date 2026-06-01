@@ -1,10 +1,36 @@
 import { type Response } from "express";
 import { AppDataSource } from "../config/data-source";
-import { Task, TaskPriority, TaskStatus } from "../model/Task";
+import { Task, TaskStatus } from "../model/Task";
 import { type AuthRequest } from "../middleware/authMiddleware";
-import { In, IsNull, Like, type FindOptionsWhere, Not } from "typeorm";
+import { In, IsNull, type FindOptionsWhere } from "typeorm";
+import { type User } from "../model/User";
 
 const taskRepository = AppDataSource.getRepository(Task);
+
+type SafeUser = Pick<User, "id" | "username" | "email">;
+
+type SafeTask = Omit<Task, "user" | "sharedWith" | "subtasks"> & {
+  user?: SafeUser | null;
+  sharedWith?: SafeUser | null;
+  subtasks?: SafeTask[];
+};
+
+const sanitizeUser = (user?: User | null): SafeUser | null => {
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+  };
+};
+
+const sanitizeTask = (task: Task): SafeTask => ({
+  ...task,
+  user: sanitizeUser(task.user),
+  sharedWith: sanitizeUser(task.sharedWith),
+  subtasks: task.subtasks?.map((subtask) => sanitizeTask(subtask)),
+});
 
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
@@ -34,11 +60,9 @@ export const createTask = async (req: AuthRequest, res: Response) => {
           .json({ message: "Parent task is not accessible" });
       }
 
-      // if parent is shared with the user, inherit the owner and shared relationship
-      if (isSharedWithUser && !isOwnedByUser) {
-        userId = parentTask.userId;
-        sharedWithId = parentTask.sharedWithId ?? null;
-      }
+      // ensure the subtask is owned by the parent owner and inherits sharing
+      userId = parentTask.userId;
+      sharedWithId = parentTask.sharedWithId ?? null;
     }
 
     const task = taskRepository.create({
@@ -52,7 +76,8 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     });
 
     await taskRepository.save(task);
-    res.status(201).json(task);
+
+    res.status(201).json(sanitizeTask(task));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error creating task", error });
@@ -74,7 +99,7 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
       order: { createdAt: "DESC" },
       relations: ["subtasks", "user", "sharedWith"],
     });
-    res.json(tasks);
+    res.json(tasks.map(sanitizeTask));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching tasks", error });
@@ -100,7 +125,7 @@ export const getCompletedTasks = async (req: AuthRequest, res: Response) => {
       relations: ["subtasks", "user", "sharedWith"],
     });
 
-    res.json(tasks);
+    res.json(tasks.map(sanitizeTask));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching completed tasks", error });
@@ -123,7 +148,7 @@ export const getTasksNoParents = async (req: AuthRequest, res: Response) => {
       order: { createdAt: "DESC" },
       relations: ["subtasks", "user", "sharedWith"],
     });
-    res.json(tasks);
+    res.json(tasks.map(sanitizeTask));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching tasks", error });
@@ -152,7 +177,7 @@ export const getSingleTask = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    res.json(task);
+    res.json(sanitizeTask(task));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching task", error });
@@ -209,7 +234,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       task.sharedWithId = sharedWithId;
 
       await taskRepository.update(
-        { parentId: task.id },
+        { parentId: task.id, userId: task.userId },
         { sharedWithId: sharedWithId },
       );
     }
@@ -230,7 +255,8 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     if (plannedFor !== undefined) task.plannedFor = plannedFor;
 
     await taskRepository.save(task);
-    res.json(task);
+
+    res.json(sanitizeTask(task));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating task", error });
@@ -261,7 +287,10 @@ export const shareTask = async (req: AuthRequest, res: Response) => {
     });
 
     if (task.subtasks.length > 0) {
-      await taskRepository.update({ parentId: task.id }, { sharedWithId });
+      await taskRepository.update(
+        { parentId: task.id, userId: task.userId },
+        { sharedWithId },
+      );
     }
 
     const updatedTask = await taskRepository.findOne({
@@ -269,7 +298,11 @@ export const shareTask = async (req: AuthRequest, res: Response) => {
       relations: ["subtasks", "user", "sharedWith"],
     });
 
-    res.json(updatedTask);
+    if (!updatedTask) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    res.json(sanitizeTask(updatedTask));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error sharing task", error });
@@ -319,6 +352,8 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
   const parentId = Number(id);
   const userId = req.user?.userId;
 
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
   const queryRunner = AppDataSource.createQueryRunner();
   await queryRunner.connect();
   await queryRunner.startTransaction();
@@ -341,12 +376,11 @@ export const toggleSubtasks = async (req: AuthRequest, res: Response) => {
     }
 
     await queryRunner.commitTransaction();
-    res.json({
-      message: "Subtasks successfully updated",
-    });
+    res.json({ message: "Subtasks successfully updated" });
   } catch (err) {
     await queryRunner.rollbackTransaction();
-    throw err;
+    console.error(err);
+    res.status(500).json({ message: "Error updating subtasks", error: err });
   } finally {
     await queryRunner.release();
   }
@@ -392,7 +426,7 @@ export const getMyDay = async (req: AuthRequest, res: Response) => {
       order: { priority: "DESC" },
     });
 
-    res.json(tasks);
+    res.json(tasks.map(sanitizeTask));
   } catch (error) {
     res.status(500).json({ message: "Error fetching My Day tasks", error });
   }
