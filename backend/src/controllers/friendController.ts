@@ -1,5 +1,4 @@
 import { type Request, type Response } from "express";
-import jwt from "jsonwebtoken";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../model/User";
 import type { AuthRequest } from "../middleware/authMiddleware";
@@ -69,12 +68,22 @@ export const acceptFriendRequest = async (req: AuthRequest, res: Response) => {
 
   try {
     const friendship = await friendshipRepository.findOne({
-      where: { id: parseInt(requestId) },
+      where: { id: Number(requestId) },
       relations: ["recipient", "requester"],
     });
 
     if (!friendship) {
       return res.status(404).json({ error: "Friend request not found" });
+    }
+
+    // ensure only the recipient can accept the friend request
+    if (friendship.recipientId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // only pending requests can be accepted
+    if (friendship.status !== FriendshipStatus.PENDING) {
+      return res.status(400).json({ error: "Friend request is not pending" });
     }
 
     friendship.status = FriendshipStatus.ACCEPTED;

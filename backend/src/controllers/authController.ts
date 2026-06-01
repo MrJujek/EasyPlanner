@@ -49,7 +49,11 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const user = await userRepository.findOneBy({ email });
+  const user = await userRepository
+    .createQueryBuilder("user")
+    .where("user.email = :email", { email })
+    .addSelect("user.password_hash")
+    .getOne();
 
   if (user && (await Bun.password.verify(password, user.password_hash))) {
     const accessToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, {

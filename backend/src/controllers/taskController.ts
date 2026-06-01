@@ -20,14 +20,24 @@ export const createTask = async (req: AuthRequest, res: Response) => {
         where: { id: parentTaskId },
       });
 
-      if (parentTask) {
-        if (
-          parentTask.userId !== userId &&
-          parentTask.sharedWithId === userId
-        ) {
-          userId = parentTask.userId;
-          sharedWithId = parentTask.sharedWithId;
-        }
+      if (!parentTask) {
+        return res.status(404).json({ message: "Parent task not found" });
+      }
+
+      // validate that the parent task is accessible to the caller
+      const isOwnedByUser = parentTask.userId === userId;
+      const isSharedWithUser = parentTask.sharedWithId === userId;
+
+      if (!isOwnedByUser && !isSharedWithUser) {
+        return res
+          .status(403)
+          .json({ message: "Parent task is not accessible" });
+      }
+
+      // if parent is shared with the user, inherit the owner and shared relationship
+      if (isSharedWithUser && !isOwnedByUser) {
+        userId = parentTask.userId;
+        sharedWithId = parentTask.sharedWithId ?? null;
       }
     }
 
@@ -54,35 +64,13 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { search, status, priority } = req.params;
-
-    const baseWhere: FindOptionsWhere<Task>[] = [
+    let where: FindOptionsWhere<Task>[] = [
       { userId },
-
       { sharedWithId: userId },
     ];
 
-    const where: FindOptionsWhere<Task>[] = baseWhere.map((w) => {
-      const condition = { ...w };
-      if (status) condition.status = status as TaskStatus;
-      if (priority) condition.priority = priority as TaskPriority;
-      return condition;
-    });
-
-    let finalWhere: FindOptionsWhere<Task>[] = where;
-
-    if (search) {
-      finalWhere = [];
-      where.forEach((w) => {
-        finalWhere.push(
-          { ...w, title: Like(`%${search}%`) },
-          { ...w, description: Like(`%${search}%`) },
-        );
-      });
-    }
-
     const tasks = await taskRepository.find({
-      where: finalWhere,
+      where: where,
       order: { createdAt: "DESC" },
       relations: ["subtasks", "user", "sharedWith"],
     });
