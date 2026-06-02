@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Task, priorityColors, statusColors, TaskStatus } from "../types/task";
 import { getTasksNoParents } from "../api/taskApi";
-import { X } from "lucide-react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Checkbox,
+  Chip,
+  Spinner,
+} from "@heroui/react";
 
 interface SubtaskFormProps {
   isOpen: boolean;
@@ -44,6 +54,7 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
 
     if (isOpen) {
       loadTasks();
+      setSelectedIds([]); // Reset selection when opening
     }
   }, [isOpen, initialTaskId]);
 
@@ -55,99 +66,86 @@ export const SubtaskSelection: React.FC<SubtaskFormProps> = ({
     );
   };
 
-  if (!isOpen) return null;
+  const handleSubmit = () => {
+    onSubmit(selectedIds);
+    onClose();
+  };
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-800">
+    <Modal isOpen={isOpen} onClose={onClose} placement="center" scrollBehavior="inside">
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader className="flex flex-col gap-1">
               Choose subtasks from list
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X />
-            </button>
-          </div>
-
-          {isLoading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-            </div>
-          ) : (
-            <div className="my-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-              {availableTasks.length === 0 ? (
-                <p className="py-8 text-center text-gray-500">
-                  No suitable tasks available.
-                </p>
+            </ModalHeader>
+            <ModalBody>
+              {isLoading ? (
+                <div className="flex h-40 items-center justify-center">
+                  <Spinner size="lg" />
+                </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {availableTasks.map((task) => (
-                    <label
-                      key={task.id}
-                      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all hover:bg-blue-50 ${
-                        selectedIds.includes(task.id)
-                          ? "border-blue-500 bg-blue-50/50"
-                          : "border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          checked={selectedIds.includes(task.id)}
-                          onChange={() => toggleTask(task.id)}
-                        />
-                        <span className="font-medium text-gray-700">
-                          {task.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`text-xs font-bold uppercase ${
-                            statusColors[task.status]
+                  {availableTasks.length === 0 ? (
+                    <p className="py-8 text-center text-gray-500">
+                      No suitable tasks available.
+                    </p>
+                  ) : (
+                    availableTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all hover:bg-default-100 ${selectedIds.includes(task.id)
+                          ? "border-primary bg-primary-50"
+                          : "border-default-200"
                           }`}
-                        >
-                          {task.status}
-                        </span>
-                        <span
-                          className={`text-xs font-bold uppercase ${
-                            priorityColors[task.priority]
-                          }`}
-                        >
-                          {task.priority}
-                        </span>
+                        onClick={() => toggleTask(task.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            isSelected={selectedIds.includes(task.id)}
+                            onValueChange={() => toggleTask(task.id)}
+                          />
+                          <span className="font-medium text-foreground">
+                            {task.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            className={statusColors[task.status]}
+                          >
+                            {task.status.replace("_", " ")}
+                          </Chip>
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            className={priorityColors[task.priority]}
+                          >
+                            {task.priority}
+                          </Chip>
+                        </div>
                       </div>
-                    </label>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
-            </div>
-          )}
-
-          <div className="mt-6 flex justify-end gap-3 border-t pt-4">
-            <button
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                onSubmit(selectedIds);
-                onClose();
-              }}
-              disabled={selectedIds.length === 0}
-              className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Submit ({selectedIds.length})
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+            </ModalBody>
+            <ModalFooter>
+              <Button color="danger" variant="light" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                onPress={handleSubmit}
+                isDisabled={selectedIds.length === 0}
+              >
+                Submit ({selectedIds.length})
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 };

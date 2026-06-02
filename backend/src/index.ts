@@ -7,6 +7,7 @@ import { AppDataSource } from "./config/data-source";
 import type { Request, Response, NextFunction } from "express";
 import authRoutes from "./routes/auth.routes";
 import taskRoutes from "./routes/task.routes";
+import friendRoutes from "./routes/friend.routes";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
@@ -23,6 +24,7 @@ app.use(express.json());
 
 app.use("/", authRoutes);
 app.use("/", taskRoutes);
+app.use("/", friendRoutes);
 
 AppDataSource.initialize()
   .then(() => {

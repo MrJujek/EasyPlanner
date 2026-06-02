@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun ./src/index.ts"
+    "dev": "bun ./src/index.ts",
+    "db:diagram": "typeorm-uml ormconfig.json"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -24,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "typeorm-uml": "^1.6.5"
   }
 }

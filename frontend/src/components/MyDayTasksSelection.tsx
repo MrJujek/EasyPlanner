@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Task, priorityColors, statusColors, TaskStatus } from "../types/task";
+import { Task, statusColors, TaskStatus } from "../types/task";
 import { getMyDayTasks, getTasks } from "../api/taskApi";
+import { CalendarDays, Sun, X, Calendar as CalendarIcon } from "lucide-react";
 import {
-  CalendarDays,
-  Sun,
-  X,
-  CheckCircle2,
-  Loader2,
-  Calendar as CalendarIcon,
-} from "lucide-react";
-import { DatePicker, DateValue } from "@heroui/react";
+  DatePicker,
+  DateValue,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Spinner,
+  Checkbox,
+  Chip,
+} from "@heroui/react";
 import { today, getLocalTimeZone, parseDate } from "@internationalized/date";
 
 interface MyDayFormProps {
@@ -25,8 +30,8 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
   onSubmit,
   addMode,
 }) => {
-  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [scheduleTasks, setScheduleTasks] = useState<Task[]>([]);
+  const [todayModeTasks, setTodayModeTasks] = useState<Task[]>([]);
+  const [scheduleModeTasks, setScheduleModeTasks] = useState<Task[]>([]);
   const [idsToDate, setIdsToDate] = useState<[number, string | null][]>([]);
   const [initialData, setInitialData] = useState<string>("[]");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -39,12 +44,21 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     [],
   );
 
+  const safeParseDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null;
+    try {
+      return parseDate(dateStr.split("T")[0]);
+    } catch (e) {
+      return null;
+    }
+  };
+
   const loadAllTasks = useCallback(async () => {
     setIsLoading(true);
     try {
       const [resAllTasks, resMyDay] = await Promise.all([
         getTasks(),
-        getMyDayTasks(),
+        getMyDayTasks(currentTodayStr),
       ]);
 
       const filterNotDone = (tasks: Task[]) =>
@@ -53,11 +67,14 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
       const allNotDone = filterNotDone(resAllTasks);
       const myDayNotDone = filterNotDone(resMyDay);
 
-      setTodayTasks(allNotDone);
-      setScheduleTasks(myDayNotDone);
+      setTodayModeTasks(
+        allNotDone.filter((t) => t.plannedFor !== currentTodayStr),
+      );
+
+      setScheduleModeTasks(myDayNotDone);
 
       const prefilled: [number, string | null][] = allNotDone
-        .filter((t) => t.plannedFor)
+        .filter((t) => t.plannedFor !== null)
         .map((t) => [t.id, t.plannedFor]);
 
       const sortedData = [...prefilled].sort((a, b) => a[0] - b[0]);
@@ -68,7 +85,7 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentTodayStr]);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,20 +106,17 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
   const toggleTask = (toggledId: number) => {
     setIdsToDate((prev) => {
       const existingPair = prev.find(([id]) => id === toggledId);
-
-      if (existingPair) {
-        if (existingPair[1] === currentTodayStr) {
-          return prev.map((pair) =>
-            pair[0] === toggledId ? [toggledId, null] : pair,
-          );
-        } else {
-          return prev.map((pair) =>
-            pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
-          );
-        }
-      } else {
-        return [...prev, [toggledId, currentTodayStr]];
+      if (existingPair && existingPair[1] === currentTodayStr) {
+        return prev.map((pair) =>
+          pair[0] === toggledId ? [toggledId, null] : pair,
+        );
       }
+      if (existingPair) {
+        return prev.map((pair) =>
+          pair[0] === toggledId ? [toggledId, currentTodayStr] : pair,
+        );
+      }
+      return [...prev, [toggledId, currentTodayStr]];
     });
   };
 
@@ -131,175 +145,180 @@ export const MyDayTasksSelection: React.FC<MyDayFormProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
-  const currentTasks = mode === "today" ? todayTasks : scheduleTasks;
+  const currentTasks = mode === "today" ? todayModeTasks : scheduleModeTasks;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
-          <h2 className="text-xl font-bold text-gray-800">Manage your day</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        <div className="flex p-1 bg-gray-100 mx-6 mt-4 rounded-xl">
-          <button
-            onClick={() => {
-              setMode("today");
-              resetToInitial();
-            }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
-              mode === "today"
-                ? "bg-white shadow-sm text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Sun className="w-4 h-4" /> Add for today
-          </button>
-          <button
-            onClick={() => {
-              setMode("schedule");
-              resetToInitial();
-            }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
-              mode === "schedule"
-                ? "bg-white shadow-sm text-purple-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <CalendarDays className="w-4 h-4" /> Plan for another date
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-2" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {currentTasks.map((task) => {
-                const taskDateEntry = idsToDate.find(([id]) => id === task.id);
-                const isChecked =
-                  taskDateEntry && taskDateEntry[1] === currentTodayStr;
-
-                return (
-                  <div
-                    key={task.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                      isChecked
-                        ? "border-blue-200 bg-blue-50/30"
-                        : "border-gray-100 hover:border-gray-200"
-                    }`}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      placement="center"
+      scrollBehavior="inside"
+      size="2xl"
+    >
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader className="flex flex-col gap-1 border-b border-default-100">
+              Manage your day
+            </ModalHeader>
+            <ModalBody className="p-0">
+              <div className="flex p-4 pb-0">
+                <div className="flex w-full bg-default-100 p-1 rounded-medium">
+                  <Button
+                    size="sm"
+                    className={`flex-1 ${mode === "today" ? "bg-background shadow-sm text-primary" : "bg-transparent text-default-500"}`}
+                    onPress={() => {
+                      setMode("today");
+                      resetToInitial();
+                    }}
+                    variant="light"
                   >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-12 flex-shrink-0 flex justify-center">
-                        {mode === "today" ? (
-                          <input
-                            type="checkbox"
-                            className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            checked={!!isChecked}
-                            onChange={() => toggleTask(task.id)}
-                          />
-                        ) : (
-                          <div className="relative flex items-center justify-center">
-                            <DatePicker
-                              aria-label="Pick date"
-                              variant="bordered"
-                              minValue={today(getLocalTimeZone())}
-                              popoverProps={{
-                                className:
-                                  "bg-white shadow-xl rounded-xl border border-gray-200",
-                                backdrop: "transparent",
-                              }}
-                              value={
-                                taskDateEntry?.[1]
-                                  ? parseDate(taskDateEntry[1] as string)
-                                  : null
-                              }
-                              onChange={(date) => updateTaskDate(task.id, date)}
-                              className="w-10"
-                              classNames={{
-                                inputWrapper: "bg-white px-0 justify-center",
-                                input: "hidden",
-                              }}
-                              showMonthAndYearPickers
-                              selectorIcon={
-                                <CalendarIcon
-                                  className={`w-5 h-5 ${taskDateEntry?.[1] ? "text-purple-600" : "text-gray-400"}`}
+                    <Sun className="w-4 h-4 mr-2" /> Add for today
+                  </Button>
+                  <Button
+                    size="sm"
+                    className={`flex-1 ${mode === "schedule" ? "bg-background shadow-sm text-secondary" : "bg-transparent text-default-500"}`}
+                    onPress={() => {
+                      setMode("schedule");
+                      resetToInitial();
+                    }}
+                    variant="light"
+                  >
+                    <CalendarDays className="w-4 h-4 mr-2" /> Manage scheduled
+                  </Button>
+                </div>
+              </div>
+
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Spinner size="lg" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 p-4">
+                  {currentTasks.length === 0 ? (
+                    <p className="text-center text-default-400 py-8">
+                      No tasks found for this mode.
+                    </p>
+                  ) : (
+                    currentTasks.map((task) => {
+                      const taskDateEntry = idsToDate.find(
+                        ([id]) => id === task.id,
+                      );
+                      const taskDate = taskDateEntry?.[1];
+                      const isChecked = taskDate === currentTodayStr;
+
+                      return (
+                        <div
+                          key={task.id}
+                          className={`flex items-center justify-between p-3 rounded-medium border transition-all cursor-pointer hover:bg-default-50 ${
+                            isChecked
+                              ? "border-primary bg-primary-50/50"
+                              : "border-default-200"
+                          }`}
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest(
+                                ".datepicker-container",
+                              )
+                            )
+                              return;
+                            if (mode === "today") toggleTask(task.id);
+                          }}
+                        >
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className="w-12 shrink-0 flex justify-center">
+                              {mode === "today" ? (
+                                <Checkbox
+                                  isSelected={isChecked}
+                                  onValueChange={() => toggleTask(task.id)}
                                 />
-                              }
-                            />
-                            {taskDateEntry?.[1] && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateTaskDate(task.id, null);
-                                }}
-                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
+                              ) : (
+                                <div className="relative flex items-center justify-center datepicker-container">
+                                  <DatePicker
+                                    aria-label="Pick date"
+                                    variant="bordered"
+                                    minValue={today(getLocalTimeZone())}
+                                    value={safeParseDate(taskDate)}
+                                    onChange={(date) =>
+                                      updateTaskDate(task.id, date)
+                                    }
+                                    className="w-[40px] **:data-[slot=input-wrapper]:px-0 **:data-[slot=input-wrapper]:border-none **:data-[slot=input-wrapper]:bg-transparent"
+                                    showMonthAndYearPickers
+                                    selectorIcon={
+                                      <div className="flex items-center justify-center w-full h-full">
+                                        <CalendarIcon
+                                          className={`w-5 h-5 ${taskDate ? "text-secondary" : "text-default-400"}`}
+                                        />
+                                      </div>
+                                    }
+                                  />
+                                  {taskDate && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateTaskDate(task.id, null);
+                                      }}
+                                      className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 z-10 border border-white shadow-sm"
+                                    >
+                                      <X className="w-2 h-2" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground truncate select-none">
+                              {task.title}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <Chip
+                              size="sm"
+                              variant="flat"
+                              className={statusColors[task.status]}
+                            >
+                              {task.status.replace("_", " ")}
+                            </Chip>
+                            {taskDate && (
+                              <Chip
+                                size="sm"
+                                variant="flat"
+                                color={
+                                  taskDate === currentTodayStr
+                                    ? "primary"
+                                    : "secondary"
+                                }
+                                className="hidden sm:flex"
                               >
-                                <X className="w-2 h-2" />
-                              </button>
+                                {taskDate === currentTodayStr
+                                  ? "Today"
+                                  : taskDate}
+                              </Chip>
                             )}
                           </div>
-                        )}
-                      </div>
-                      <span className="font-medium text-gray-700 truncate">
-                        {task.title}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusColors[task.status]}`}
-                      >
-                        {task.status}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${priorityColors[task.priority]}`}
-                      >
-                        {task.priority}
-                      </span>
-                      {taskDateEntry?.[1] && mode === "schedule" && (
-                        <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700">
-                          {taskDateEntry[1]}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!hasChanges || isLoading}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-xl font-semibold transition-all shadow-lg disabled:shadow-none"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4" />
-            )}
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </ModalBody>
+            <ModalFooter className="border-t border-default-100">
+              <Button variant="light" color="danger" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                onPress={handleConfirm}
+                isDisabled={!hasChanges || isLoading}
+                isLoading={isLoading}
+              >
+                Confirm Changes
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 };

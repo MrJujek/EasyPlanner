@@ -7,13 +7,14 @@ import { NotFound } from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { TaskDetail } from "./pages/task/TaskDetail";
 import { Archive } from "./pages/history/Archive";
+import { FriendsPage } from "./pages/FriendsPage";
 import { HeroUIProvider } from "@heroui/react";
 import { MyDay } from "./pages/my-day/MyDay";
 
 function App() {
   return (
     <AuthProvider>
-      <HeroUIProvider>
+      <HeroUIProvider className="h-full">
         <BrowserRouter>
           <Routes>
             <Route path="/register" element={<Register />} />
@@ -23,6 +24,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/task/:id" element={<TaskDetail />} />
               <Route path="/history" element={<Archive />} />
+              <Route path="/friends" element={<FriendsPage />} />
               <Route path="/my-day" element={<MyDay />} />
 
               <Route path="/*" element={<NotFound />} />

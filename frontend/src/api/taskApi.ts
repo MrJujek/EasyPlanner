@@ -45,8 +45,9 @@ export const setSubtasks = async (
   await api.put<Task>(`/subtasks/${taskId}`, { subtasks: newSubtasks });
 };
 
-export const getMyDayTasks = async (): Promise<Task[]> => {
-  const response = await api.get<Task[]>("/my-day");
+export const getMyDayTasks = async (date?: string): Promise<Task[]> => {
+  const url = date ? `/my-day?date=${date}` : "/my-day";
+  const response = await api.get<Task[]>(url);
   return response.data;
 };
 
@@ -54,4 +55,14 @@ export const batchUpdateMyDay = async (
   updates: { id: number; plannedFor: string | null }[],
 ): Promise<void> => {
   await api.patch("/my-day", { updates });
+};
+
+export const shareTask = async (
+  taskId: number,
+  sharedWithId: number,
+): Promise<Task> => {
+  const response = await api.patch<Task>(`/tasks/${taskId}/share`, {
+    sharedWithId,
+  });
+  return response.data;
 };
