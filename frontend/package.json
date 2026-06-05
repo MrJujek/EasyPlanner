@@ -10,8 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/button": "^2.2.29",
+    "@heroui/react": "^2.8.7",
+    "@internationalized/date": "3.10.1",
     "autoprefixer": "^10.4.18",
     "axios": "^1.13.2",
+    "framer-motion": "11.13.1",
+    "lucide-react": "^0.563.0",
+    "next-themes": "^0.4.6",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -17,11 +17,15 @@ import {
 } from "../../api/taskApi";
 import { SubtaskSelection } from "../../components/SubtasksSelection";
 import { TaskForm } from "../../components/TaskForm";
+import { ArrowBigLeft, ArrowUpFromLine, CirclePlus, Share2, User as UserIcon } from "lucide-react";
+import { Chip } from "@heroui/react";
+import { useAuth } from "../../contexts/AuthContextType";
 
 export const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const taskId = id ? parseInt(id, 10) : null;
   const [task, setTask] = useState<Task | null>(location.state?.task || null);
@@ -29,6 +33,8 @@ export const TaskDetail: React.FC = () => {
   const [isSelectionOpen, setIsSelectionOpen] = useState<boolean>(false);
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+
+  const isOwner = task ? task.userId === user?.id : false;
 
   useEffect(() => {
     if (taskId) {
@@ -92,7 +98,7 @@ export const TaskDetail: React.FC = () => {
     const currentSubtasksIds =
       task.subtasks?.map((subtask) => subtask.id) || [];
     const allSubtasksIds = Array.from(
-      new Set([...currentSubtasksIds, ...newSubtasksIds])
+      new Set([...currentSubtasksIds, ...newSubtasksIds]),
     );
 
     try {
@@ -153,14 +159,14 @@ export const TaskDetail: React.FC = () => {
 
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter(
-    (s) => s.status === TaskStatus.DONE
+    (s) => s.status === TaskStatus.DONE,
   ).length;
   const progress =
     subtasks.length > 0
       ? Math.round((completedSubtasks / subtasks.length) * 100)
       : task.status == TaskStatus.DONE
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -170,7 +176,8 @@ export const TaskDetail: React.FC = () => {
             onClick={() => navigate("/")}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-medium text-sm"
           >
-            ← Back to Dashboard
+            <ArrowBigLeft />
+            Back to Dashboard
           </button>
           <div className="flex gap-2">
             <button
@@ -194,9 +201,35 @@ export const TaskDetail: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-2xl shadow-md p-6 sm:p-10 border border-gray-100">
               <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                  {task.title}
-                </h1>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {task.title}
+                  </h1>
+
+                  {/* Shared Badges - Inline */}
+                  {isOwner && task.sharedWith && (
+                    <Chip
+                      startContent={<Share2 size={12} />}
+                      size="sm"
+                      variant="flat"
+                      color="secondary"
+                      className="ml-2"
+                    >
+                      Shared with {task.sharedWith.username}
+                    </Chip>
+                  )}
+                  {!isOwner && (
+                    <Chip
+                      startContent={<UserIcon size={12} />}
+                      size="sm"
+                      variant="flat"
+                      color="warning"
+                      className="ml-2"
+                    >
+                      Shared by {task.user?.username || "Owner"}
+                    </Chip>
+                  )}
+                </div>
                 <p className="text-gray-600 leading-relaxed text-lg">
                   {task.description || "No description provided."}
                 </p>
@@ -237,26 +270,23 @@ export const TaskDetail: React.FC = () => {
                             }
                           >
                             <div
-                              className={`w-2 h-2 rounded-full ${
-                                subtask.status === TaskStatus.DONE
-                                  ? "bg-green-500"
-                                  : "bg-gray-300"
-                              }`}
+                              className={`w-2 h-2 rounded-full ${subtask.status === TaskStatus.DONE
+                                ? "bg-green-500"
+                                : "bg-gray-300"
+                                }`}
                             />
                             <span
-                              className={`flex-1 font-medium ${
-                                subtask.status === TaskStatus.DONE
-                                  ? "line-through text-gray-400"
-                                  : "text-gray-700"
-                              }`}
+                              className={`flex-1 font-medium ${subtask.status === TaskStatus.DONE
+                                ? "line-through text-gray-400"
+                                : "text-gray-700"
+                                }`}
                             >
                               {subtask.title}
                             </span>
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  priorityColors[subtask.priority]
-                                }`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${priorityColors[subtask.priority]
+                                  }`}
                               >
                                 {subtask.priority}
                               </span>
@@ -295,13 +325,17 @@ export const TaskDetail: React.FC = () => {
                         className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
                         onClick={openSubtaskModal}
                       >
-                        ↑ Add subtask
+                        <div className="flex items-center justify-center gap-2">
+                          <ArrowUpFromLine /> Add subtask
+                        </div>
                       </button>
                       <button
                         className="w-full py-3 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all text-sm font-semibold"
                         onClick={openCreateModal}
                       >
-                        + Create new subtask
+                        <div className="flex items-center justify-center gap-2">
+                          <CirclePlus /> Create new subtask
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -322,9 +356,8 @@ export const TaskDetail: React.FC = () => {
                     Current Status
                   </label>
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      statusColors[task.status]
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[task.status]
+                      }`}
                   >
                     {task.status.replace("_", " ")}
                   </span>
@@ -335,9 +368,8 @@ export const TaskDetail: React.FC = () => {
                     Priority Level
                   </label>
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      priorityColors[task.priority]
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${priorityColors[task.priority]
+                      }`}
                   >
                     {task.priority}
                   </span>

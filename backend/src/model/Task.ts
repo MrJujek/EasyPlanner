@@ -53,8 +53,21 @@ export class Task {
   @JoinColumn({ name: "userId" })
   user!: User;
 
+  @Column({ nullable: true })
+  sharedWithId?: number | null;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "sharedWithId" })
+  sharedWith?: User;
+
   @CreateDateColumn()
   createdAt!: Date;
+
+  @Column({ type: "date", nullable: true })
+  plannedFor?: Date | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  completedAt?: Date | null;
 
   @Column({ nullable: true })
   parentId: number | null;

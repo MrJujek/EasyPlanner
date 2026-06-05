@@ -1,24 +1,29 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Task, CreateTaskDto, UpdateTaskDto } from "../types/task";
+import { Task, UpdateTaskDto } from "../../types/task";
 import {
-  getTasks,
-  createTask,
+  getMyDayTasks,
   getTask,
   updateTask,
   deleteTask,
-} from "../api/taskApi";
-import { TaskCard } from "../components/TaskCard";
-import { TaskForm } from "../components/TaskForm";
-import { useDebounce } from "../hooks/useDebounce";
-import { SearchBar } from "../components/SearchBar";
-import { FilterSelect } from "../components/FilterSelect";
-import { CirclePlus } from "lucide-react";
+  batchUpdateMyDay,
+} from "../../api/taskApi";
+import { TaskCard } from "../../components/TaskCard";
+import { TaskForm } from "../../components/TaskForm";
+import { useDebounce } from "../../hooks/useDebounce";
+import { SearchBar } from "../../components/SearchBar";
+import { FilterSelect } from "../../components/FilterSelect";
+import { Spinner, Button } from "@heroui/react";
+import { CalendarPlus, CalendarClock, CheckCircle } from "lucide-react";
+import { MyDayTasksSelection } from "../../components/MyDayTasksSelection";
+import { today, getLocalTimeZone } from "@internationalized/date";
 
-export const Dashboard = () => {
+export const MyDay: React.FC = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+  const [addMode, setAddMode] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,7 +46,8 @@ export const Dashboard = () => {
 
   const fetchTasks = async () => {
     try {
-      const data = await getTasks();
+      const localToday = today(getLocalTimeZone()).toString();
+      const data = await getMyDayTasks(localToday);
       setTasks(data);
     } catch (error) {
       console.error(error);
@@ -53,15 +59,6 @@ export const Dashboard = () => {
   useEffect(() => {
     fetchTasks();
   }, []);
-
-  const handleCreate = async (data: CreateTaskDto) => {
-    try {
-      const newTask = await createTask(data);
-      setTasks([newTask, ...tasks]);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const handleUpdate = async (data: UpdateTaskDto) => {
     if (!editingTask) return;
@@ -83,6 +80,19 @@ export const Dashboard = () => {
     }
   };
 
+  const handleBatchUpdateMyDay = async (data: [number, string | null][]) => {
+    try {
+      const formattedUpdates = data.map(([id, date]) => ({
+        id: id,
+        plannedFor: date,
+      }));
+      await batchUpdateMyDay(formattedUpdates);
+      await fetchTasks();
+    } catch (error) {
+      console.error("Error during batch update", error);
+    }
+  };
+
   const openDetails = async (id: number) => {
     try {
       const task: Task = await getTask(id);
@@ -92,21 +102,28 @@ export const Dashboard = () => {
     }
   };
 
-  const openCreateModal = () => {
-    setEditingTask(undefined);
-    setIsFormOpen(true);
-  };
-
   const openEditModal = (task: Task) => {
     setEditingTask(task);
-    setIsFormOpen(true);
+    setIsEditFormOpen(true);
   };
 
+  const openSelectionModal = (add: boolean) => {
+    setAddMode(add);
+    setIsSelectionOpen(true);
+  };
+
+  const completedCount = useMemo(
+    () => tasks.filter((t) => t.status === "DONE").length,
+    [tasks],
+  );
+
+  const totalCount = tasks.length;
+
   return (
-    <div>
+    <>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">My Tasks</h2>
+          <h2 className="text-3xl font-bold text-gray-800">My Day</h2>
           <div className="flex gap-4">
             <SearchBar
               value={search}
@@ -133,36 +150,21 @@ export const Dashboard = () => {
                 { label: "Done", value: "DONE" },
               ]}
             />
-            <button
-              onClick={openCreateModal}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2"
-            >
-              <CirclePlus className="w-5 h-5" /> New Task
-            </button>
           </div>
         </div>
-
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          </div>
+          <Spinner variant="simple" />
         ) : tasks.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 text-lg mb-4">You have no tasks yet.</p>
-            <button
-              onClick={openCreateModal}
-              className="text-blue-600 font-semibold hover:underline"
-            >
-              Create your first task
-            </button>
-          </div>
+          <p className="text-gray-500 text-lg mb-4">
+            There are no tasks planned for today
+          </p>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
             <p className="text-gray-500 text-lg mb-4">
               No tasks found matching your filters.
             </p>
-            <button
-              onClick={() => {
+            <Button
+              onPress={() => {
                 setSearch("");
                 setStatus("");
                 setPriority("");
@@ -170,7 +172,7 @@ export const Dashboard = () => {
               className="text-blue-600 font-semibold hover:underline"
             >
               Clear filters
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -185,14 +187,56 @@ export const Dashboard = () => {
             ))}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 mt-4 border-t border-gray-100 w-full">
+          <div className="flex items-center gap-4">
+            <Button
+              endContent={<CalendarPlus />}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold"
+              onPress={() => openSelectionModal(true)}
+            >
+              Add to My Day
+            </Button>
+            <Button
+              endContent={<CalendarClock />}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold"
+              onPress={() => openSelectionModal(false)}
+            >
+              Reschedule/Remove tasks
+            </Button>
+          </div>
+          {totalCount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border border-gray-200">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm font-medium text-gray-600">
+                Progress:{" "}
+                <span className="text-gray-900 font-bold">
+                  {completedCount}/{totalCount}
+                </span>
+              </span>
+              <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden ml-2 hidden sm:block">
+                <div
+                  className="h-full bg-green-500 transition-all duration-500"
+                  style={{ width: `${(completedCount / totalCount) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
       <TaskForm
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={editingTask ? handleUpdate : handleCreate}
+        isOpen={isEditFormOpen}
+        onClose={() => setIsEditFormOpen(false)}
+        onSubmit={handleUpdate}
         initialData={editingTask}
       />
-    </div>
+      <MyDayTasksSelection
+        isOpen={isSelectionOpen}
+        onClose={() => setIsSelectionOpen(false)}
+        onSubmit={handleBatchUpdateMyDay}
+        addMode={addMode}
+      />
+    </>
   );
 };

@@ -1,3 +1,5 @@
+import { User } from "./user";
+
 export enum TaskStatus {
   TODO = "TODO",
   IN_PROGRESS = "IN_PROGRESS",
@@ -29,7 +31,12 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   userId: number;
+  user?: User;
+  sharedWithId?: number | null;
+  sharedWith?: User;
   createdAt: string;
+  plannedFor: string;
+  completedAt: string | null;
   parentId: number | null;
   subtasks?: Task[];
 }
@@ -40,6 +47,7 @@ export interface CreateTaskDto {
   status?: TaskStatus;
   priority?: TaskPriority;
   parentId?: number;
+  sharedWithId?: number;
 }
 
 export interface UpdateTaskDto {
@@ -47,4 +55,5 @@ export interface UpdateTaskDto {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  sharedWithId?: number;
 }
