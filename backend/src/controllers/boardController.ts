@@ -16,10 +16,14 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
   const { boardId: paramBoardId, taskId: paramTaskId } = req.params;
   const boardId = paramBoardId ? Number(paramBoardId) : null;
   const taskId = paramTaskId ? Number(paramTaskId) : null;
-  const { targetColumnId } = req.body;
+  const targetColumnId = req.body.targetColumnId
+    ? Number(req.body.targetColumnId)
+    : null;
 
-  if (!targetColumnId) {
-    res.status(400).json({ message: "No targetColumnId paramiter was given" });
+  if (targetColumnId === null || isNaN(targetColumnId)) {
+    res
+      .status(400)
+      .json({ message: "No valid targetColumnId parameter was given" });
     return;
   }
 
@@ -48,14 +52,6 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         where: { columnId: targetColumnId },
       });
 
-      // check WIP limit
-      if (column.wipLimit > 0 && currentTaskCount + 1 > column.wipLimit) {
-        throw {
-          status: 409,
-          message: `WIP limit (${column.wipLimit}) for column "${column.title}" is full already.`,
-        };
-      }
-
       // find and update task's columnId relation
       const task = await transactionalEntityManager.findOne(Task, {
         where: { id: taskId, boardId: boardId },
@@ -63,6 +59,18 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
 
       if (!task) {
         throw { status: 404, message: "No given task found on the board." };
+      }
+
+      // check WIP limit
+      if (
+        task.columnId !== targetColumnId &&
+        column.wipLimit > 0 &&
+        currentTaskCount + 1 > column.wipLimit
+      ) {
+        throw {
+          status: 409,
+          message: `WIP limit (${column.wipLimit}) for column "${column.title}" is full already.`,
+        };
       }
 
       task.columnId = targetColumnId;
