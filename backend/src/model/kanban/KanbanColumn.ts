@@ -6,6 +6,7 @@ import {
   JoinColumn,
   OneToMany,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { Board } from "./Board";
 import { Task } from "../Task";
 
@@ -22,7 +23,7 @@ export class KanbanColumn {
 
   @ManyToOne(() => Board, (board) => board.columns, { onDelete: "CASCADE" })
   @JoinColumn({ name: "boardId" })
-  board!: Board;
+  board!: Relation<Board>;
 
   @ORMColumn({ type: "int", default: 0 })
   wipLimit!: number;
@@ -31,5 +32,5 @@ export class KanbanColumn {
   order!: number;
 
   @OneToMany(() => Task, (task) => task.column)
-  tasks!: Task[];
+  tasks!: Relation<Task[]>;
 }

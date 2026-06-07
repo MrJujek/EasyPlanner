@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { Board } from "./Board";
 import { User } from "../User";
 
@@ -25,7 +26,7 @@ export class BoardMember {
 
   @ManyToOne(() => Board, (board) => board.members, { onDelete: "CASCADE" })
   @JoinColumn({ name: "boardId" })
-  board!: Board;
+  board!: Relation<Board>;
 
   @Column()
   userId!: number;
