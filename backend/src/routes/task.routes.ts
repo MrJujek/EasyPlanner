@@ -1,4 +1,4 @@
-import express from "express";
+import { Router } from "express";
 import { authenticateToken } from "../middleware/authMiddleware";
 import {
   createTask,
@@ -15,7 +15,7 @@ import {
   shareTask,
 } from "../controllers/taskController";
 
-const router = express.Router();
+const router = Router();
 
 router.use(authenticateToken);
 
