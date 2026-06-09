@@ -10,21 +10,25 @@ import {
   ListboxItem,
   User as UserAvatar,
   Input,
+  Chip,
 } from "@heroui/react";
 import { getFriends } from "../../api/friends";
 import { Friend } from "../../types/friend";
+import { Board } from "../../types/board";
 import { Search } from "lucide-react";
 
 interface ShareBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (username: string) => void;
+  board: Board;
 }
 
 export const ShareBoardModal: React.FC<ShareBoardModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  board,
 }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,15 +66,31 @@ export const ShareBoardModal: React.FC<ShareBoardModalProps> = ({
     friend.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const currentMembers = board.members || [];
+  const memberUsernames = currentMembers.map(m => m.user?.username).filter(Boolean);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} placement="center">
       <ModalContent>
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              Share Board
+              Share Board "{board.title}"
             </ModalHeader>
             <ModalBody>
+              {currentMembers.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-default-500 mb-2 font-medium">Currently shared with:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {currentMembers.map(member => member.user && (
+                      <Chip key={member.userId} variant="flat" color="secondary">
+                        {member.user.username}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Input
                 startContent={<Search size={18} className="text-default-400" />}
                 placeholder="Search friends..."
@@ -99,6 +119,7 @@ export const ShareBoardModal: React.FC<ShareBoardModalProps> = ({
                     const selected = Array.from(keys)[0];
                     if (selected) setSelectedFriendUsername(selected as string);
                   }}
+                  disabledKeys={memberUsernames}
                   classNames={{
                     list: "max-h-[300px] overflow-y-auto",
                   }}
@@ -124,9 +145,9 @@ export const ShareBoardModal: React.FC<ShareBoardModalProps> = ({
               <Button color="danger" variant="light" onPress={onClose}>
                 Cancel
               </Button>
-              <Button 
-                color="primary" 
-                onPress={handleSubmit} 
+              <Button
+                color="primary"
+                onPress={handleSubmit}
                 isDisabled={!selectedFriendUsername}
               >
                 Share

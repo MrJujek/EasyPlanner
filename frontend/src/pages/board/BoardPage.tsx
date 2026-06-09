@@ -368,6 +368,7 @@ export const BoardPage = () => {
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           onSubmit={handleShareBoard}
+          board={board}
         />
       )}
 
