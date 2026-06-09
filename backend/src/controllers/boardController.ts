@@ -24,6 +24,49 @@ export const getUserBoardsHandler = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const createBoardHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+  const { title, description } = req.body;
+  if (!title) {
+    res.status(400).json({ message: "Title is required" });
+    return;
+  }
+
+  try {
+    await AppDataSource.transaction(async (manager) => {
+      const board = new Board();
+      board.title = title;
+      board.ownerId = userId;
+
+      const savedBoard = await manager.save(board);
+
+      const col1 = new KanbanColumn();
+      col1.title = "To Do";
+      col1.order = 0;
+      col1.boardId = savedBoard.id;
+      const col2 = new KanbanColumn();
+      col2.title = "In Progress";
+      col2.order = 1;
+      col2.boardId = savedBoard.id;
+      const col3 = new KanbanColumn();
+      col3.title = "Done";
+      col3.order = 2;
+      col3.boardId = savedBoard.id;
+
+      await manager.save([col1, col2, col3]);
+
+      res.status(201).json(savedBoard);
+    });
+  } catch (error) {
+    console.error("Error creating board:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const getBoardHandler = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.userId;
 
@@ -371,15 +414,13 @@ export const getProductivityReport = async (
         .where("bm.boardId = :boardId", { boardId })
         .getMany();
 
-      res
-        .status(200)
-        .json(
-          members.map((bm) => ({
-            userId: bm.user.id,
-            username: bm.user.username,
-            completedTasks: 0,
-          })),
-        );
+      res.status(200).json(
+        members.map((bm) => ({
+          userId: bm.user.id,
+          username: bm.user.username,
+          completedTasks: 0,
+        })),
+      );
       return;
     }
 

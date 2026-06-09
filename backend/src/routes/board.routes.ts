@@ -6,6 +6,7 @@ import {
   getProductivityReport,
   getBoardHandler,
   getUserBoardsHandler,
+  createBoardHandler,
 } from "../controllers/boardController";
 import { authenticateToken } from "../middleware/authMiddleware";
 
@@ -17,6 +18,7 @@ router.patch(
   moveTaskHandler,
 );
 router.get("/boards", authenticateToken, getUserBoardsHandler);
+router.post("/boards", authenticateToken, createBoardHandler);
 router.post("/boards/:boardId/columns", authenticateToken, addColumnHandler);
 router.get("/boards/:boardId", authenticateToken, getBoardHandler);
 router.get(
