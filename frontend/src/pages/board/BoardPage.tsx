@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { Board } from '../../types/board';
-import { getBoard, getBoards, createBoard } from '../../api/boardApi';
-import { TaskCard } from '../../components/TaskCard';
+import { getBoard, getBoards, createBoard, moveTask } from '../../api/boardApi';
 import { BoardFormModal } from '../../components/board/BoardFormModal';
+import { SelectTaskModal } from '../../components/board/SelectTaskModal';
 
 export const BoardPage = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -14,6 +14,8 @@ export const BoardPage = () => {
   const [board, setBoard] = useState<Board | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSelectTaskModalOpen, setIsSelectTaskModalOpen] = useState(false);
+  const [selectedColumnForTask, setSelectedColumnForTask] = useState<number | null>(null);
 
   const handleCreateBoard = async (title: string, description: string) => {
     try {
@@ -21,6 +23,17 @@ export const BoardPage = () => {
       setBoards([newBoard, ...boards]);
     } catch (error) {
       console.error("Failed to create board:", error);
+    }
+  };
+
+  const handleAddExistingTask = async (taskId: number) => {
+    if (!board || selectedColumnForTask === null) return;
+    try {
+      await moveTask(board.id, taskId, selectedColumnForTask);
+      const updatedBoard = await getBoard(board.id);
+      setBoard(updatedBoard);
+    } catch (error) {
+      console.error("Failed to add task:", error);
     }
   };
 
@@ -92,7 +105,7 @@ export const BoardPage = () => {
             </div>
           </main>
         )}
-        
+
         <BoardFormModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
@@ -108,7 +121,7 @@ export const BoardPage = () => {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-[calc(100vh-4rem)] bg-gray-50/30 dark:bg-gray-900/10">
+    <div className="flex flex-col bg-gray-50/30 dark:bg-gray-900/10">
       <header className="px-8 py-6 border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           {board.title}
@@ -138,28 +151,59 @@ export const BoardPage = () => {
               </div>
               <div className="p-4 flex-1 overflow-y-auto space-y-4">
                 {column.tasks?.map((task) => (
-                  <TaskCard
+                  <div
                     key={task.id}
-                    task={task}
-                    onTaskClick={(id) => console.log('Click', id)}
-                    onEdit={(t) => console.log('Edit', t)}
-                    onDelete={(id) => console.log('Delete', id)}
-                  />
+                    onClick={() => navigate(`/task/${task.id}`)}
+                    className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group"
+                  >
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 group-hover:text-primary transition-colors text-sm">
+                      {task.title}
+                    </h4>
+                    {task.description && (
+                      <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                        {task.description}
+                      </p>
+                    )}
+                  </div>
                 ))}
                 {(!column.tasks || column.tasks.length === 0) && (
                   <div className="text-center p-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400">
                     No tasks
                   </div>
                 )}
+                <div className="pt-2 pb-1">
+                  <Button
+                    variant="light"
+                    color="primary"
+                    className="w-full justify-start text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary"
+                    startContent={<Plus size={18} />}
+                    isDisabled={column.wipLimit > 0 && (column.tasks?.length || 0) >= column.wipLimit}
+                    onPress={() => {
+                      setSelectedColumnForTask(column.id);
+                      setIsSelectTaskModalOpen(true);
+                    }}
+                  >
+                    Add existing task
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
-          <div className="min-w-[340px] flex items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/20 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/40 hover:text-gray-700 transition-colors cursor-pointer h-24">
+          {/* <div className="min-w-[340px] flex items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/20 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/40 hover:text-gray-700 transition-colors cursor-pointer h-24">
             <Plus className="mr-2" size={20} />
             <span className="font-medium">Add Column</span>
-          </div>
+          </div> */}
         </div>
       </main>
+
+      {board && (
+        <SelectTaskModal
+          isOpen={isSelectTaskModalOpen}
+          onClose={() => setIsSelectTaskModalOpen(false)}
+          onSelect={handleAddExistingTask}
+          currentBoardId={board.id}
+        />
+      )}
     </div>
   );
 };
