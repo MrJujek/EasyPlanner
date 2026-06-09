@@ -55,6 +55,72 @@ export const BoardPage = () => {
     }
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: number, sourceColumnId: number) => {
+    e.dataTransfer.setData("taskId", taskId.toString());
+    e.dataTransfer.setData("sourceColumnId", sourceColumnId.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetColumnId: number) => {
+    e.preventDefault();
+    const taskIdStr = e.dataTransfer.getData("taskId");
+    const sourceColumnIdStr = e.dataTransfer.getData("sourceColumnId");
+
+    if (!taskIdStr || !sourceColumnIdStr || !board) return;
+
+    const taskId = parseInt(taskIdStr, 10);
+    const sourceColumnId = parseInt(sourceColumnIdStr, 10);
+
+    if (sourceColumnId === targetColumnId) return;
+
+    // Optimistic UI update
+    const taskToMove = board.columns?.find(c => c.id === sourceColumnId)?.tasks?.find(t => t.id === taskId);
+    if (!taskToMove) return;
+
+    const previousBoard = { ...board };
+
+    setBoard(prevBoard => {
+      if (!prevBoard) return prevBoard;
+
+      const newColumns = prevBoard.columns?.map(column => {
+        if (column.id === sourceColumnId) {
+          return { ...column, tasks: column.tasks?.filter(t => t.id !== taskId) };
+        }
+        if (column.id === targetColumnId) {
+          return { ...column, tasks: [...(column.tasks || []), taskToMove] };
+        }
+        return column;
+      });
+
+      return { ...prevBoard, columns: newColumns };
+    });
+
+    try {
+      await moveTask(board.id, taskId, targetColumnId);
+      const updatedBoard = await getBoard(board.id);
+      setBoard(updatedBoard);
+    } catch (error: any) {
+      // Revert optimistic update
+      setBoard(previousBoard);
+
+      if (error.response?.status === 409) {
+        setNotification("Another user took the last spot");
+        setTimeout(() => setNotification(null), 3000);
+        try {
+          const updatedBoard = await getBoard(board.id);
+          setBoard(updatedBoard);
+        } catch (fetchError) {
+          console.error("Failed to fetch updated board after conflict:", fetchError);
+        }
+      } else {
+        console.error("Failed to move task:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -200,10 +266,10 @@ export const BoardPage = () => {
           )}
         </div>
         {user?.id === board.ownerId && (
-          <Button 
-            color="primary" 
-            variant="flat" 
-            startContent={<Users size={18} />} 
+          <Button
+            color="primary"
+            variant="flat"
+            startContent={<Users size={18} />}
             onPress={() => setIsShareModalOpen(true)}
           >
             Share
@@ -217,6 +283,8 @@ export const BoardPage = () => {
             <div
               key={column.id}
               className="min-w-[340px] w-[340px] bg-gray-100/80 dark:bg-gray-800/50 rounded-2xl flex flex-col max-h-full border border-gray-200/50 dark:border-gray-700/50 shadow-sm"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
             >
               <div className="p-4 flex items-center justify-between border-b border-gray-200/50 dark:border-gray-700/50 bg-white/40 dark:bg-gray-800/40 rounded-t-2xl">
                 <h3 className="font-semibold text-gray-700 dark:text-gray-200">
@@ -233,6 +301,8 @@ export const BoardPage = () => {
                 {column.tasks?.map((task) => (
                   <div
                     key={task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id, column.id)}
                     onClick={() => navigate(`/task/${task.id}`)}
                     className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group active:cursor-grabbing"
                   >
