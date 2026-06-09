@@ -160,7 +160,8 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
   // ensure user is member of the board
   const isMember = await ensureBoardMembership(boardId, userId as number);
   if (!isMember) {
-    throw { status: 403, message: "Forbidden: not a board member" };
+    res.status(403).json({ message: "Forbidden: not a board member" });
+    return;
   }
 
   try {
@@ -206,6 +207,23 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
         .setLock("pessimistic_write")
         .where("c.boardId = :boardId", { boardId })
         .getMany();
+
+      // re-check columns count under lock and enforce MAX_COLUMNS
+      const currentColumnsCountAfterLock = await transactionalEntityManager.count(
+        KanbanColumn,
+        { where: { boardId: boardId } },
+      );
+      if (currentColumnsCountAfterLock >= Board.MAX_COLUMNS) {
+        throw {
+          status: 409,
+          message: `Maximum number of columns (${Board.MAX_COLUMNS}) reached for this board.`,
+        };
+      }
+
+      // ensure targetOrder is still valid after re-count
+      if (targetOrder > currentColumnsCountAfterLock) {
+        targetOrder = currentColumnsCountAfterLock;
+      }
 
       // every order is incremented by one for all columns that match expression: order >= targetOrder
       await transactionalEntityManager

@@ -14,6 +14,9 @@ import { Task } from "../Task";
 
 @Entity("boards")
 export class Board {
+  // maximum number of columns allowed on a board (application-level constant)
+  public static readonly MAX_COLUMNS = 8;
+
   @PrimaryGeneratedColumn()
   id!: number;
 
