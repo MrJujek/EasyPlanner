@@ -6,6 +6,18 @@ import { Board } from "../model/kanban/Board";
 import { KanbanColumn } from "../model/kanban/KanbanColumn";
 import { BoardMember } from "../model/kanban/BoardMember";
 import { Task } from "../model/Task";
+import type { EntityManager } from "typeorm";
+
+// check if given user is a member of the board
+const ensureBoardMembership = async (
+  boardId: number,
+  userId: number,
+): Promise<boolean> => {
+  const membership = await AppDataSource.getRepository(BoardMember).findOne({
+    where: { boardId, userId },
+  });
+  return !!membership;
+};
 
 export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
   let userId = req.user?.userId;
@@ -35,13 +47,38 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    const columnExists = await AppDataSource.getRepository(
+      KanbanColumn,
+    ).findOne({
+      where: { id: targetColumnId, boardId: boardId },
+    });
+    if (!columnExists) {
+      res
+        .status(404)
+        .json({ message: "Target column doesn't exist on the board" });
+      return;
+    }
+
+    const taskExists = await AppDataSource.getRepository(Task).findOne({
+      where: { id: taskId, boardId: boardId },
+    });
+    if (!taskExists) {
+      res.status(404).json({ message: "No given task found on the board." });
+      return;
+    }
+
+    const isMember = await ensureBoardMembership(boardId, userId as number);
+    if (!isMember) {
+      res.status(403).json({ message: "Forbidden: not a board member" });
+      return;
+    }
+
     await AppDataSource.transaction(async (transactionalEntityManager) => {
-      // find target column with pessimistic blocade
+      // find target column with pessimistic write lock
       const column = await transactionalEntityManager.findOne(KanbanColumn, {
         where: { id: targetColumnId, boardId: boardId },
         lock: { mode: "pessimistic_write" },
       });
-
       if (!column) {
         throw {
           status: 404,
@@ -57,8 +94,8 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
       // find and update task's columnId relation
       const task = await transactionalEntityManager.findOne(Task, {
         where: { id: taskId, boardId: boardId },
+        lock: { mode: "pessimistic_write" },
       });
-
       if (!task) {
         throw { status: 404, message: "No given task found on the board." };
       }
@@ -120,6 +157,12 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
     return;
   }
 
+  // ensure user is member of the board
+  const isMember = await ensureBoardMembership(boardId, userId as number);
+  if (!isMember) {
+    throw { status: 403, message: "Forbidden: not a board member" };
+  }
+
   try {
     await AppDataSource.transaction(async (transactionalEntityManager) => {
       // check if board exists
@@ -156,6 +199,13 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
       if (targetOrder < 0) {
         targetOrder = 0;
       }
+
+      // lock columns for this board to avoid concurrent reordering races
+      await transactionalEntityManager
+        .createQueryBuilder(KanbanColumn, "c")
+        .setLock("pessimistic_write")
+        .where("c.boardId = :boardId", { boardId })
+        .getMany();
 
       // every order is incremented by one for all columns that match expression: order >= targetOrder
       await transactionalEntityManager
@@ -206,6 +256,12 @@ export const getBottlenecksReport = async (req: AuthRequest, res: Response) => {
   const { startDate, endDate } = req.query;
 
   try {
+    // membership check
+    const isMember = await ensureBoardMembership(boardId, userId);
+    if (!isMember) {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
     const query = AppDataSource.getRepository(TaskActivityLog)
       .createQueryBuilder("log")
       .innerJoinAndSelect("log.toColumn", "toColumn")
@@ -232,28 +288,36 @@ export const getBottlenecksReport = async (req: AuthRequest, res: Response) => {
     }
 
     // Calculate time
-    const columnTimes = new Map<number, { title: string, totalMs: number, count: number }>();
+    const columnTimes = new Map<
+      number,
+      { title: string; totalMs: number; count: number }
+    >();
 
     for (const [, tLogs] of taskLogs) {
       for (let i = 0; i < tLogs.length - 1; i++) {
         const currentLog = tLogs[i];
         const nextLog = tLogs[i + 1];
         if (!currentLog || !nextLog) continue;
-        
-        const durationMs = nextLog.timestamp.getTime() - currentLog.timestamp.getTime();
-        
+
+        const durationMs =
+          nextLog.timestamp.getTime() - currentLog.timestamp.getTime();
+
         const colId = currentLog.toColumnId;
         if (!columnTimes.has(colId)) {
-          columnTimes.set(colId, { title: currentLog.toColumn.title, totalMs: 0, count: 0 });
+          columnTimes.set(colId, {
+            title: currentLog.toColumn.title,
+            totalMs: 0,
+            count: 0,
+          });
         }
-        
+
         const stats = columnTimes.get(colId)!;
         stats.totalMs += durationMs;
         stats.count += 1;
       }
     }
 
-    const bottlenecks = Array.from(columnTimes.values()).map(stat => ({
+    const bottlenecks = Array.from(columnTimes.values()).map((stat) => ({
       columnTitle: stat.title,
       averageTimeMs: stat.totalMs / stat.count,
     }));
@@ -265,7 +329,10 @@ export const getBottlenecksReport = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getProductivityReport = async (req: AuthRequest, res: Response) => {
+export const getProductivityReport = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   const userId = req.user?.userId;
   if (!userId) {
     res.status(401).json({ message: "Unauthorized" });
@@ -282,11 +349,19 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
   const { startDate, endDate } = req.query;
 
   try {
-    const doneColumns = await AppDataSource.getRepository(KanbanColumn)
-      .find({
-        where: { boardId }
-      });
-    const doneColumnIds = doneColumns.filter(c => c.title.toLowerCase() === 'done').map(c => c.id);
+    // membership check
+    const isMember = await ensureBoardMembership(boardId, userId);
+    if (!isMember) {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
+
+    const doneColumns = await AppDataSource.getRepository(KanbanColumn).find({
+      where: { boardId },
+    });
+    const doneColumnIds = doneColumns
+      .filter((c) => c.title.toLowerCase() === "done")
+      .map((c) => c.id);
 
     if (doneColumnIds.length === 0) {
       const members = await AppDataSource.getRepository(BoardMember)
@@ -295,14 +370,25 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
         .where("bm.boardId = :boardId", { boardId })
         .getMany();
 
-      res.status(200).json(members.map(bm => ({ userId: bm.user.id, username: bm.user.username, completedTasks: 0 })));
+      res.status(200).json(
+        members.map((bm) => ({
+          userId: bm.user.id,
+          username: bm.user.username,
+          completedTasks: 0,
+        })),
+      );
       return;
     }
 
     const query = AppDataSource.getRepository(BoardMember)
       .createQueryBuilder("bm")
       .innerJoin("bm.user", "user")
-      .leftJoin("TaskActivityLog", "log", "log.userId = user.id AND log.boardId = bm.boardId AND log.toColumnId IN (:...doneColumnIds)", { doneColumnIds })
+      .leftJoin(
+        "TaskActivityLog",
+        "log",
+        "log.userId = user.id AND log.boardId = bm.boardId AND log.toColumnId IN (:...doneColumnIds)",
+        { doneColumnIds },
+      )
       .where("bm.boardId = :boardId", { boardId });
 
     if (startDate) {
@@ -312,21 +398,22 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
       query.andWhere("log.timestamp <= :endDate", { endDate });
     }
 
-    query.select([
-      "user.id as \"userId\"",
-      "user.username as \"username\"",
-      "COUNT(log.id) as \"completedTasks\""
-    ])
-    .groupBy("user.id")
-    .addGroupBy("user.username")
-    .orderBy("\"completedTasks\"", "DESC");
+    query
+      .select([
+        'user.id as "userId"',
+        'user.username as "username"',
+        'COUNT(log.id) as "completedTasks"',
+      ])
+      .groupBy("user.id")
+      .addGroupBy("user.username")
+      .orderBy('"completedTasks"', "DESC");
 
     const results = await query.getRawMany();
 
-    const formattedResults = results.map(row => ({
+    const formattedResults = results.map((row) => ({
       userId: row.userId,
       username: row.username,
-      completedTasks: Number(row.completedTasks)
+      completedTasks: Number(row.completedTasks),
     }));
 
     res.status(200).json(formattedResults);
