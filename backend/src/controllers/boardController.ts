@@ -7,6 +7,70 @@ import { KanbanColumn } from "../model/kanban/KanbanColumn";
 import { BoardMember } from "../model/kanban/BoardMember";
 import { Task } from "../model/Task";
 
+export const getUserBoardsHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+  try {
+    const boards = await AppDataSource.getRepository(Board).find({
+      where: [{ ownerId: userId }, { members: { userId: userId } }],
+    });
+    res.status(200).json(boards);
+  } catch (error) {
+    console.error("Error fetching user boards:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getBoardHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const { boardId: paramBoardId } = req.params;
+  const boardId = paramBoardId ? Number(paramBoardId) : null;
+
+  if (boardId === null || isNaN(boardId)) {
+    res.status(400).json({ message: "Invalid boardId provided." });
+    return;
+  }
+
+  try {
+    const board = await AppDataSource.getRepository(Board).findOne({
+      where: { id: boardId },
+      relations: [
+        "columns",
+        "columns.tasks",
+        "columns.tasks.user",
+        "columns.tasks.sharedWith",
+        "columns.tasks.subtasks",
+        "members",
+        "members.user",
+      ],
+      order: {
+        columns: {
+          order: "ASC",
+        },
+      },
+    });
+
+    if (!board) {
+      res.status(404).json({ message: "Board not found" });
+      return;
+    }
+
+    res.status(200).json(board);
+  } catch (error) {
+    console.error("Error fetching board:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
   let userId = req.user?.userId;
 
@@ -232,28 +296,36 @@ export const getBottlenecksReport = async (req: AuthRequest, res: Response) => {
     }
 
     // Calculate time
-    const columnTimes = new Map<number, { title: string, totalMs: number, count: number }>();
+    const columnTimes = new Map<
+      number,
+      { title: string; totalMs: number; count: number }
+    >();
 
     for (const [, tLogs] of taskLogs) {
       for (let i = 0; i < tLogs.length - 1; i++) {
         const currentLog = tLogs[i];
         const nextLog = tLogs[i + 1];
         if (!currentLog || !nextLog) continue;
-        
-        const durationMs = nextLog.timestamp.getTime() - currentLog.timestamp.getTime();
-        
+
+        const durationMs =
+          nextLog.timestamp.getTime() - currentLog.timestamp.getTime();
+
         const colId = currentLog.toColumnId;
         if (!columnTimes.has(colId)) {
-          columnTimes.set(colId, { title: currentLog.toColumn.title, totalMs: 0, count: 0 });
+          columnTimes.set(colId, {
+            title: currentLog.toColumn.title,
+            totalMs: 0,
+            count: 0,
+          });
         }
-        
+
         const stats = columnTimes.get(colId)!;
         stats.totalMs += durationMs;
         stats.count += 1;
       }
     }
 
-    const bottlenecks = Array.from(columnTimes.values()).map(stat => ({
+    const bottlenecks = Array.from(columnTimes.values()).map((stat) => ({
       columnTitle: stat.title,
       averageTimeMs: stat.totalMs / stat.count,
     }));
@@ -265,7 +337,10 @@ export const getBottlenecksReport = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getProductivityReport = async (req: AuthRequest, res: Response) => {
+export const getProductivityReport = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   const userId = req.user?.userId;
   if (!userId) {
     res.status(401).json({ message: "Unauthorized" });
@@ -282,11 +357,12 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
   const { startDate, endDate } = req.query;
 
   try {
-    const doneColumns = await AppDataSource.getRepository(KanbanColumn)
-      .find({
-        where: { boardId }
-      });
-    const doneColumnIds = doneColumns.filter(c => c.title.toLowerCase() === 'done').map(c => c.id);
+    const doneColumns = await AppDataSource.getRepository(KanbanColumn).find({
+      where: { boardId },
+    });
+    const doneColumnIds = doneColumns
+      .filter((c) => c.title.toLowerCase() === "done")
+      .map((c) => c.id);
 
     if (doneColumnIds.length === 0) {
       const members = await AppDataSource.getRepository(BoardMember)
@@ -295,14 +371,27 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
         .where("bm.boardId = :boardId", { boardId })
         .getMany();
 
-      res.status(200).json(members.map(bm => ({ userId: bm.user.id, username: bm.user.username, completedTasks: 0 })));
+      res
+        .status(200)
+        .json(
+          members.map((bm) => ({
+            userId: bm.user.id,
+            username: bm.user.username,
+            completedTasks: 0,
+          })),
+        );
       return;
     }
 
     const query = AppDataSource.getRepository(BoardMember)
       .createQueryBuilder("bm")
       .innerJoin("bm.user", "user")
-      .leftJoin("TaskActivityLog", "log", "log.userId = user.id AND log.boardId = bm.boardId AND log.toColumnId IN (:...doneColumnIds)", { doneColumnIds })
+      .leftJoin(
+        "TaskActivityLog",
+        "log",
+        "log.userId = user.id AND log.boardId = bm.boardId AND log.toColumnId IN (:...doneColumnIds)",
+        { doneColumnIds },
+      )
       .where("bm.boardId = :boardId", { boardId });
 
     if (startDate) {
@@ -312,21 +401,22 @@ export const getProductivityReport = async (req: AuthRequest, res: Response) => 
       query.andWhere("log.timestamp <= :endDate", { endDate });
     }
 
-    query.select([
-      "user.id as \"userId\"",
-      "user.username as \"username\"",
-      "COUNT(log.id) as \"completedTasks\""
-    ])
-    .groupBy("user.id")
-    .addGroupBy("user.username")
-    .orderBy("\"completedTasks\"", "DESC");
+    query
+      .select([
+        'user.id as "userId"',
+        'user.username as "username"',
+        'COUNT(log.id) as "completedTasks"',
+      ])
+      .groupBy("user.id")
+      .addGroupBy("user.username")
+      .orderBy('"completedTasks"', "DESC");
 
     const results = await query.getRawMany();
 
-    const formattedResults = results.map(row => ({
+    const formattedResults = results.map((row) => ({
       userId: row.userId,
       username: row.username,
-      completedTasks: Number(row.completedTasks)
+      completedTasks: Number(row.completedTasks),
     }));
 
     res.status(200).json(formattedResults);

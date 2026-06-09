@@ -4,6 +4,8 @@ import {
   addColumnHandler,
   getBottlenecksReport,
   getProductivityReport,
+  getBoardHandler,
+  getUserBoardsHandler,
 } from "../controllers/boardController";
 import { authenticateToken } from "../middleware/authMiddleware";
 
@@ -14,7 +16,9 @@ router.patch(
   authenticateToken,
   moveTaskHandler,
 );
+router.get("/boards", authenticateToken, getUserBoardsHandler);
 router.post("/boards/:boardId/columns", authenticateToken, addColumnHandler);
+router.get("/boards/:boardId", authenticateToken, getBoardHandler);
 router.get(
   "/boards/:boardId/reports/bottlenecks",
   authenticateToken,
