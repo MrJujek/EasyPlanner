@@ -10,6 +10,7 @@ import { Archive } from "./pages/history/Archive";
 import { FriendsPage } from "./pages/FriendsPage";
 import { HeroUIProvider } from "@heroui/react";
 import { MyDay } from "./pages/my-day/MyDay";
+import { BoardPage } from "./pages/board/BoardPage";
 
 function App() {
   return (
@@ -26,6 +27,8 @@ function App() {
               <Route path="/history" element={<Archive />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/my-day" element={<MyDay />} />
+              <Route path="/board" element={<BoardPage />} />
+              <Route path="/board/:boardId" element={<BoardPage />} />
 
               <Route path="/*" element={<NotFound />} />
             </Route>

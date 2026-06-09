@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LogOut, LayoutDashboard, History, Sun, Users } from "lucide-react";
+import { LogOut, LayoutDashboard, History, Sun, Users, KanbanSquare } from "lucide-react";
 import { Button } from "@heroui/react";
 
 interface HeaderProps {
@@ -14,10 +14,9 @@ export const Header: React.FC<HeaderProps> = ({ username, logout }) => {
 
   const navLinkClass = (path: string) => `
     flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
-    ${
-      isActive(path)
-        ? "bg-blue-50 text-blue-600"
-        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    ${isActive(path)
+      ? "bg-blue-50 text-blue-600"
+      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
     }
   `;
 
@@ -47,6 +46,10 @@ export const Header: React.FC<HeaderProps> = ({ username, logout }) => {
           <Link to="/history" className={navLinkClass("/history")}>
             <History size={18} />
             Archive
+          </Link>
+          <Link to="/board" className={navLinkClass("/board")}>
+            <KanbanSquare size={18} />
+            Boards
           </Link>
         </nav>
 
