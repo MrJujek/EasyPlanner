@@ -7,6 +7,7 @@ import {
   getBoardHandler,
   getUserBoardsHandler,
   createBoardHandler,
+  addMemberHandler,
 } from "../controllers/boardController";
 import { authenticateToken } from "../middleware/authMiddleware";
 
@@ -20,6 +21,7 @@ router.patch(
 router.get("/boards", authenticateToken, getUserBoardsHandler);
 router.post("/boards", authenticateToken, createBoardHandler);
 router.post("/boards/:boardId/columns", authenticateToken, addColumnHandler);
+router.post("/boards/:boardId/members", authenticateToken, addMemberHandler);
 router.get("/boards/:boardId", authenticateToken, getBoardHandler);
 router.get(
   "/boards/:boardId/reports/bottlenecks",

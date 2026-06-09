@@ -4,8 +4,10 @@ import { TaskActivityLog } from "../model/kanban/TaskActivityLog";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { Board } from "../model/kanban/Board";
 import { KanbanColumn } from "../model/kanban/KanbanColumn";
-import { BoardMember } from "../model/kanban/BoardMember";
+import { BoardMember, BoardRole } from "../model/kanban/BoardMember";
 import { Task } from "../model/Task";
+import { User } from "../model/User";
+import { Friendship, FriendshipStatus } from "../model/Friendship";
 
 export const getUserBoardsHandler = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.userId;
@@ -16,6 +18,7 @@ export const getUserBoardsHandler = async (req: AuthRequest, res: Response) => {
   try {
     const boards = await AppDataSource.getRepository(Board).find({
       where: [{ ownerId: userId }, { members: { userId: userId } }],
+      relations: ["owner", "members", "members.user"],
     });
     res.status(200).json(boards);
   } catch (error) {
@@ -93,6 +96,7 @@ export const getBoardHandler = async (req: AuthRequest, res: Response) => {
     const board = await AppDataSource.getRepository(Board).findOne({
       where: { id: boardId },
       relations: [
+        "owner",
         "columns",
         "columns.tasks",
         "columns.tasks.user",
@@ -176,7 +180,20 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         throw { status: 404, message: "No given task found." };
       }
 
-      if (task.userId !== userId && task.sharedWithId !== userId) {
+      const board = await transactionalEntityManager.findOne(Board, {
+        where: { id: boardId },
+      });
+
+      const isBoardMember = await transactionalEntityManager.findOne(BoardMember, {
+        where: { boardId: boardId, userId: userId },
+      });
+
+      if (
+        task.userId !== userId &&
+        task.sharedWithId !== userId &&
+        board?.ownerId !== userId &&
+        !isBoardMember
+      ) {
         throw { status: 403, message: "Forbidden to modify this task." };
       }
 
@@ -471,9 +488,92 @@ export const getProductivityReport = async (
       completedTasks: Number(row.completedTasks),
     }));
 
-    res.status(200).json(formattedResults);
+      res.status(200).json(formattedResults);
   } catch (error) {
     console.error("Error generating productivity report:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const addMemberHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const { boardId: paramBoardId } = req.params;
+  const boardId = Number(paramBoardId);
+  const { username } = req.body;
+
+  if (isNaN(boardId) || !username) {
+    res.status(400).json({ message: "Invalid input" });
+    return;
+  }
+
+  try {
+    const board = await AppDataSource.getRepository(Board).findOne({
+      where: { id: boardId }
+    });
+
+    if (!board) {
+      res.status(404).json({ message: "Board not found" });
+      return;
+    }
+
+    if (board.ownerId !== userId) {
+      res.status(403).json({ message: "Only the board owner can add members" });
+      return;
+    }
+
+    const userToAdd = await AppDataSource.getRepository(User).findOne({
+      where: { username }
+    });
+
+    if (!userToAdd) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (userToAdd.id === userId) {
+      res.status(400).json({ message: "Cannot add yourself to your own board" });
+      return;
+    }
+
+    // Check if they are friends
+    const friendship = await AppDataSource.getRepository(Friendship).findOne({
+      where: [
+        { requesterId: userId, recipientId: userToAdd.id, status: FriendshipStatus.ACCEPTED },
+        { requesterId: userToAdd.id, recipientId: userId, status: FriendshipStatus.ACCEPTED }
+      ]
+    });
+
+    if (!friendship) {
+      res.status(403).json({ message: "You can only share boards with friends" });
+      return;
+    }
+
+    // Check if already a member
+    const existingMember = await AppDataSource.getRepository(BoardMember).findOne({
+      where: { boardId, userId: userToAdd.id }
+    });
+
+    if (existingMember) {
+      res.status(400).json({ message: "User is already a member" });
+      return;
+    }
+
+    const newMember = new BoardMember();
+    newMember.boardId = boardId;
+    newMember.userId = userToAdd.id;
+    newMember.role = BoardRole.MEMBER;
+
+    await AppDataSource.getRepository(BoardMember).save(newMember);
+
+    res.status(201).json({ message: "User added successfully", member: newMember });
+
+  } catch (error) {
+    console.error("Error adding board member:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
