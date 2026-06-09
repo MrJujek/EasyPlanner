@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Users, Share2, User as UserIcon } from 'lucide-react';
+import { Plus, Users, Share2, User as UserIcon, BarChart2 } from 'lucide-react';
 import { Board } from '../../types/board';
 import { getBoard, getBoards, createBoard, moveTask, addBoardMember } from '../../api/boardApi';
 import { BoardFormModal } from '../../components/board/BoardFormModal';
 import { SelectTaskModal } from '../../components/board/SelectTaskModal';
 import { ShareBoardModal } from '../../components/board/ShareBoardModal';
+import { AnalyticsModal } from '../../components/board/AnalyticsModal';
 import { useAuth } from '../../contexts/AuthContextType';
 
 export const BoardPage = () => {
@@ -19,6 +20,7 @@ export const BoardPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSelectTaskModalOpen, setIsSelectTaskModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [selectedColumnForTask, setSelectedColumnForTask] = useState<number | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -266,14 +268,24 @@ export const BoardPage = () => {
           )}
         </div>
         {user?.id === board.ownerId && (
-          <Button
-            color="primary"
-            variant="flat"
-            startContent={<Users size={18} />}
-            onPress={() => setIsShareModalOpen(true)}
-          >
-            Share
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              color="primary"
+              variant="flat"
+              startContent={<BarChart2 size={18} />}
+              onPress={() => setIsAnalyticsModalOpen(true)}
+            >
+              Analytics
+            </Button>
+            <Button
+              color="primary"
+              variant="flat"
+              startContent={<Users size={18} />}
+              onPress={() => setIsShareModalOpen(true)}
+            >
+              Share
+            </Button>
+          </div>
         )}
       </header>
 
@@ -356,6 +368,14 @@ export const BoardPage = () => {
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           onSubmit={handleShareBoard}
+        />
+      )}
+
+      {board && (
+        <AnalyticsModal
+          isOpen={isAnalyticsModalOpen}
+          onClose={() => setIsAnalyticsModalOpen(false)}
+          boardId={board.id}
         />
       )}
     </div>

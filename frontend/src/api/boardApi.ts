@@ -35,3 +35,13 @@ export const addBoardMember = async (
 ): Promise<void> => {
   await api.post(`/boards/${boardId}/members`, { username });
 };
+
+export const getBottlenecksReport = async (boardId: number) => {
+  const response = await api.get(`/boards/${boardId}/reports/bottlenecks`);
+  return response.data;
+};
+
+export const getProductivityReport = async (boardId: number) => {
+  const response = await api.get(`/boards/${boardId}/reports/productivity`);
+  return response.data;
+};
