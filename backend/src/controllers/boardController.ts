@@ -40,6 +40,7 @@ export const createBoardHandler = async (req: AuthRequest, res: Response) => {
     await AppDataSource.transaction(async (manager) => {
       const board = new Board();
       board.title = title;
+      board.description = description || null;
       board.ownerId = userId;
 
       const savedBoard = await manager.save(board);
@@ -48,14 +49,19 @@ export const createBoardHandler = async (req: AuthRequest, res: Response) => {
       col1.title = "To Do";
       col1.order = 0;
       col1.boardId = savedBoard.id;
+      col1.wipLimit = 5;
+
       const col2 = new KanbanColumn();
       col2.title = "In Progress";
       col2.order = 1;
       col2.boardId = savedBoard.id;
+      col2.wipLimit = 5;
+
       const col3 = new KanbanColumn();
       col3.title = "Done";
       col3.order = 2;
       col3.boardId = savedBoard.id;
+      col3.wipLimit = 5;
 
       await manager.save([col1, col2, col3]);
 
@@ -163,11 +169,15 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
 
       // find and update task's columnId relation
       const task = await transactionalEntityManager.findOne(Task, {
-        where: { id: taskId, boardId: boardId },
+        where: { id: taskId },
       });
 
       if (!task) {
-        throw { status: 404, message: "No given task found on the board." };
+        throw { status: 404, message: "No given task found." };
+      }
+
+      if (task.userId !== userId && task.sharedWithId !== userId) {
+        throw { status: 403, message: "Forbidden to modify this task." };
       }
 
       // check WIP limit
@@ -182,7 +192,7 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         };
       }
 
-      if (task.columnId !== targetColumnId) {
+      if (task.columnId !== targetColumnId || task.boardId !== boardId) {
         const log = new TaskActivityLog();
         log.taskId = task.id;
         log.userId = userId as number;
@@ -192,6 +202,7 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         await transactionalEntityManager.save(log);
       }
 
+      task.boardId = boardId;
       task.columnId = targetColumnId;
       await transactionalEntityManager.save(task);
     });
@@ -278,7 +289,7 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
       newColumn.title = title;
       newColumn.boardId = boardId;
       newColumn.order = targetOrder;
-      newColumn.wipLimit = wipLimit ? Number(wipLimit) : 0; // by default, no WIP limit
+      newColumn.wipLimit = wipLimit ? Number(wipLimit) : 5;
 
       await transactionalEntityManager.save(newColumn);
     });

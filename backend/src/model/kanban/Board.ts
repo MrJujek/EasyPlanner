@@ -20,6 +20,9 @@ export class Board {
   @Column()
   title!: string;
 
+  @Column({ type: "text", nullable: true })
+  description!: string | null;
+
   @Column()
   ownerId!: number;
 
