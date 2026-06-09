@@ -23,6 +23,7 @@ export interface Board {
   description: string | null;
   createdAt: string;
   ownerId: number;
+  owner: User;
   columns: KanbanColumn[];
   members: BoardMember[];
 }

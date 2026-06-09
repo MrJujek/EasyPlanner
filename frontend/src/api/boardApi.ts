@@ -28,3 +28,10 @@ export const moveTask = async (
     targetColumnId,
   });
 };
+
+export const addBoardMember = async (
+  boardId: number,
+  username: string,
+): Promise<void> => {
+  await api.post(`/boards/${boardId}/members`, { username });
+};
