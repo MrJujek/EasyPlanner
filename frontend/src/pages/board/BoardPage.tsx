@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@heroui/react';
 import { Plus } from 'lucide-react';
+import { Board } from '../../types/board';
 
 export const BoardPage = () => {
   const { boardId } = useParams<{ boardId: string }>();
   const [isLoading, setIsLoading] = useState(true);
-  const [board, setBoard] = useState<"" | null>(null);
-  const [boards, setBoards] = useState<[]>([]);
+  const [board, setBoard] = useState<Board | null>(null);
+  const [boards, setBoards] = useState<Board[]>([]);
 
   if (isLoading) {
     return (
@@ -43,7 +44,6 @@ export const BoardPage = () => {
   return (
     <div>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        asd
       </main>
     </div>
   );
