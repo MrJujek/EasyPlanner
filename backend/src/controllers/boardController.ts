@@ -4,19 +4,147 @@ import { TaskActivityLog } from "../model/kanban/TaskActivityLog";
 import type { AuthRequest } from "../middleware/authMiddleware";
 import { Board } from "../model/kanban/Board";
 import { KanbanColumn } from "../model/kanban/KanbanColumn";
-import { BoardMember } from "../model/kanban/BoardMember";
+import { BoardMember, BoardRole } from "../model/kanban/BoardMember";
 import { Task } from "../model/Task";
-import type { EntityManager } from "typeorm";
+import { User } from "../model/User";
+import { Friendship, FriendshipStatus } from "../model/Friendship";
 
-// check if given user is a member of the board
 const ensureBoardMembership = async (
   boardId: number,
   userId: number,
 ): Promise<boolean> => {
+  const board = await AppDataSource.getRepository(Board).findOne({
+    where: { id: boardId },
+  });
+  if (board && board.ownerId === userId) {
+    return true;
+  }
+
   const membership = await AppDataSource.getRepository(BoardMember).findOne({
     where: { boardId, userId },
   });
   return !!membership;
+};
+
+export const getUserBoardsHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+  try {
+    const boards = await AppDataSource.getRepository(Board).find({
+      where: [{ ownerId: userId }, { members: { userId: userId } }],
+      relations: ["owner", "members", "members.user"],
+    });
+    res.status(200).json(boards);
+  } catch (error) {
+    console.error("Error fetching user boards:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const createBoardHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+  const { title, description } = req.body;
+  if (!title) {
+    res.status(400).json({ message: "Title is required" });
+    return;
+  }
+
+  try {
+    await AppDataSource.transaction(async (manager) => {
+      const board = new Board();
+      board.title = title;
+      board.description = description || null;
+      board.ownerId = userId;
+
+      const savedBoard = await manager.save(board);
+
+      const col1 = new KanbanColumn();
+      col1.title = "To Do";
+      col1.order = 0;
+      col1.boardId = savedBoard.id;
+      col1.wipLimit = 5;
+
+      const col2 = new KanbanColumn();
+      col2.title = "In Progress";
+      col2.order = 1;
+      col2.boardId = savedBoard.id;
+      col2.wipLimit = 5;
+
+      const col3 = new KanbanColumn();
+      col3.title = "Done";
+      col3.order = 2;
+      col3.boardId = savedBoard.id;
+      col3.wipLimit = 5;
+
+      await manager.save([col1, col2, col3]);
+
+      res.status(201).json(savedBoard);
+    });
+  } catch (error) {
+    console.error("Error creating board:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getBoardHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const { boardId: paramBoardId } = req.params;
+  const boardId = paramBoardId ? Number(paramBoardId) : null;
+
+  if (boardId === null || isNaN(boardId)) {
+    res.status(400).json({ message: "Invalid boardId provided." });
+    return;
+  }
+
+  try {
+    const isMember = await ensureBoardMembership(boardId, userId);
+    if (!isMember) {
+      res.status(403).json({ message: "Forbidden: not a board member" });
+      return;
+    }
+
+    const board = await AppDataSource.getRepository(Board).findOne({
+      where: { id: boardId },
+      relations: [
+        "owner",
+        "columns",
+        "columns.tasks",
+        "columns.tasks.user",
+        "columns.tasks.sharedWith",
+        "columns.tasks.subtasks",
+        "members",
+        "members.user",
+      ],
+      order: {
+        columns: {
+          order: "ASC",
+        },
+      },
+    });
+
+    if (!board) {
+      res.status(404).json({ message: "Board not found" });
+      return;
+    }
+
+    res.status(200).json(board);
+  } catch (error) {
+    console.error("Error fetching board:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
@@ -60,10 +188,10 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
     }
 
     const taskExists = await AppDataSource.getRepository(Task).findOne({
-      where: { id: taskId, boardId: boardId },
+      where: { id: taskId },
     });
     if (!taskExists) {
-      res.status(404).json({ message: "No given task found on the board." });
+      res.status(404).json({ message: "No given task found." });
       return;
     }
 
@@ -93,11 +221,31 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
 
       // find and update task's columnId relation
       const task = await transactionalEntityManager.findOne(Task, {
-        where: { id: taskId, boardId: boardId },
+        where: { id: taskId },
         lock: { mode: "pessimistic_write" },
       });
       if (!task) {
-        throw { status: 404, message: "No given task found on the board." };
+        throw { status: 404, message: "No given task found." };
+      }
+
+      const board = await transactionalEntityManager.findOne(Board, {
+        where: { id: boardId },
+      });
+
+      const isBoardMember = await transactionalEntityManager.findOne(
+        BoardMember,
+        {
+          where: { boardId: boardId, userId: userId },
+        },
+      );
+
+      if (
+        task.userId !== userId &&
+        task.sharedWithId !== userId &&
+        board?.ownerId !== userId &&
+        !isBoardMember
+      ) {
+        throw { status: 403, message: "Forbidden to modify this task." };
       }
 
       // check WIP limit
@@ -112,7 +260,7 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         };
       }
 
-      if (task.columnId !== targetColumnId) {
+      if (task.columnId !== targetColumnId || task.boardId !== boardId) {
         const log = new TaskActivityLog();
         log.taskId = task.id;
         log.userId = userId as number;
@@ -122,6 +270,7 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
         await transactionalEntityManager.save(log);
       }
 
+      task.boardId = boardId;
       task.columnId = targetColumnId;
       await transactionalEntityManager.save(task);
     });
@@ -209,10 +358,10 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
         .getMany();
 
       // re-check columns count under lock and enforce MAX_COLUMNS
-      const currentColumnsCountAfterLock = await transactionalEntityManager.count(
-        KanbanColumn,
-        { where: { boardId: boardId } },
-      );
+      const currentColumnsCountAfterLock =
+        await transactionalEntityManager.count(KanbanColumn, {
+          where: { boardId: boardId },
+        });
       if (currentColumnsCountAfterLock >= Board.MAX_COLUMNS) {
         throw {
           status: 409,
@@ -239,7 +388,8 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
       newColumn.title = title;
       newColumn.boardId = boardId;
       newColumn.order = targetOrder;
-      newColumn.wipLimit = wipLimit ? Number(wipLimit) : 0; // by default, no WIP limit
+      newColumn.wipLimit = newColumn.wipLimit =
+        wipLimit === undefined || wipLimit === null ? 5 : Number(wipLimit);
 
       await transactionalEntityManager.save(newColumn);
     });
@@ -437,6 +587,104 @@ export const getProductivityReport = async (
     res.status(200).json(formattedResults);
   } catch (error) {
     console.error("Error generating productivity report:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const addMemberHandler = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const { boardId: paramBoardId } = req.params;
+  const boardId = Number(paramBoardId);
+  const { username } = req.body;
+
+  if (isNaN(boardId) || !username) {
+    res.status(400).json({ message: "Invalid input" });
+    return;
+  }
+
+  try {
+    const board = await AppDataSource.getRepository(Board).findOne({
+      where: { id: boardId },
+    });
+
+    if (!board) {
+      res.status(404).json({ message: "Board not found" });
+      return;
+    }
+
+    if (board.ownerId !== userId) {
+      res.status(403).json({ message: "Only the board owner can add members" });
+      return;
+    }
+
+    const userToAdd = await AppDataSource.getRepository(User).findOne({
+      where: { username },
+    });
+
+    if (!userToAdd) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (userToAdd.id === userId) {
+      res
+        .status(400)
+        .json({ message: "Cannot add yourself to your own board" });
+      return;
+    }
+
+    // Check if they are friends
+    const friendship = await AppDataSource.getRepository(Friendship).findOne({
+      where: [
+        {
+          requesterId: userId,
+          recipientId: userToAdd.id,
+          status: FriendshipStatus.ACCEPTED,
+        },
+        {
+          requesterId: userToAdd.id,
+          recipientId: userId,
+          status: FriendshipStatus.ACCEPTED,
+        },
+      ],
+    });
+
+    if (!friendship) {
+      res
+        .status(403)
+        .json({ message: "You can only share boards with friends" });
+      return;
+    }
+
+    // Check if already a member
+    const existingMember = await AppDataSource.getRepository(
+      BoardMember,
+    ).findOne({
+      where: { boardId, userId: userToAdd.id },
+    });
+
+    if (existingMember) {
+      res.status(400).json({ message: "User is already a member" });
+      return;
+    }
+
+    const newMember = new BoardMember();
+    newMember.boardId = boardId;
+    newMember.userId = userToAdd.id;
+    newMember.role = BoardRole.MEMBER;
+
+    await AppDataSource.getRepository(BoardMember).save(newMember);
+
+    res
+      .status(201)
+      .json({ message: "User added successfully", member: newMember });
+  } catch (error) {
+    console.error("Error adding board member:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -38,6 +38,8 @@ export interface Task {
   plannedFor: string;
   completedAt: string | null;
   parentId: number | null;
+  boardId: number | null;
+  columnId: number | null;
   subtasks?: Task[];
 }
 
