@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { Button, Chip } from '@heroui/react';
 import { Plus, Users, Share2, User as UserIcon, BarChart2 } from 'lucide-react';
 import { Board } from '../../types/board';
@@ -40,7 +40,7 @@ export const BoardPage = () => {
   const handleCreateBoard = async (title: string, description: string) => {
     try {
       const newBoard = await createBoard(title, description);
-      setBoards([newBoard, ...boards]);
+      setBoards((prev) => [newBoard, ...prev]);
     } catch (error) {
       console.error("Failed to create board:", error);
     }
@@ -224,8 +224,9 @@ export const BoardPage = () => {
   }
 
   if (!board) {
-    navigate("/board");
-    return null;
+    return (
+      <Navigate to="/board" />
+    );
   }
 
   return (
