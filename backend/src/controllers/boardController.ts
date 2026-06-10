@@ -110,6 +110,12 @@ export const getBoardHandler = async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    const isMember = await ensureBoardMembership(boardId, userId);
+    if (!isMember) {
+      res.status(403).json({ message: "Forbidden: not a board member" });
+      return;
+    }
+
     const board = await AppDataSource.getRepository(Board).findOne({
       where: { id: boardId },
       relations: [
@@ -182,10 +188,10 @@ export const moveTaskHandler = async (req: AuthRequest, res: Response) => {
     }
 
     const taskExists = await AppDataSource.getRepository(Task).findOne({
-      where: { id: taskId, boardId: boardId },
+      where: { id: taskId },
     });
     if (!taskExists) {
-      res.status(404).json({ message: "No given task found on the board." });
+      res.status(404).json({ message: "No given task found." });
       return;
     }
 
@@ -382,7 +388,8 @@ export const addColumnHandler = async (req: AuthRequest, res: Response) => {
       newColumn.title = title;
       newColumn.boardId = boardId;
       newColumn.order = targetOrder;
-      newColumn.wipLimit = wipLimit ? Number(wipLimit) : 5;
+      newColumn.wipLimit = newColumn.wipLimit =
+        wipLimit === undefined || wipLimit === null ? 5 : Number(wipLimit);
 
       await transactionalEntityManager.save(newColumn);
     });
