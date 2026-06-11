@@ -1,0 +1,46 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+  CreateDateColumn,
+} from "typeorm";
+import { User } from "../User";
+import { KanbanColumn } from "./KanbanColumn";
+import { BoardMember } from "./BoardMember";
+import { Task } from "../Task";
+
+@Entity("boards")
+export class Board {
+  public static readonly MAX_COLUMNS = 8;
+
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column()
+  title!: string;
+
+  @Column({ type: "text", nullable: true })
+  description!: string | null;
+
+  @Column()
+  ownerId!: number;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "ownerId" })
+  owner!: User;
+
+  @OneToMany(() => KanbanColumn, (column) => column.board)
+  columns!: KanbanColumn[];
+
+  @OneToMany(() => BoardMember, (member) => member.board)
+  members!: BoardMember[];
+
+  @OneToMany(() => Task, (task) => task.board)
+  tasks!: Task[];
+
+  @CreateDateColumn()
+  createdAt!: Date;
+}

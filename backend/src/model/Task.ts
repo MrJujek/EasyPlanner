@@ -8,6 +8,8 @@ import {
   OneToMany,
 } from "typeorm";
 import { User } from "./User";
+import { Board } from "./kanban/Board";
+import { KanbanColumn } from "./kanban/KanbanColumn";
 
 export enum TaskStatus {
   TODO = "TODO",
@@ -59,6 +61,30 @@ export class Task {
   @ManyToOne(() => User)
   @JoinColumn({ name: "sharedWithId" })
   sharedWith?: User;
+
+  // kanban
+
+  @Column({ nullable: true })
+  boardId!: number | null;
+
+  @ManyToOne(() => Board, (board) => board.tasks, {
+    onDelete: "CASCADE",
+    nullable: true,
+  })
+  @JoinColumn({ name: "boardId" })
+  board!: Board | null;
+
+  @Column({ nullable: true })
+  columnId!: number | null;
+
+  @ManyToOne(() => KanbanColumn, (column) => column.tasks, {
+    onDelete: "SET NULL",
+    nullable: true,
+  })
+  @JoinColumn({ name: "columnId" })
+  column!: KanbanColumn | null;
+
+  // end kanban
 
   @CreateDateColumn()
   createdAt!: Date;
